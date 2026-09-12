@@ -54,6 +54,10 @@ class SecClient:
         """Fetches an arbitrary sec.gov document (e.g. a filing) as text."""
         return self._throttled_get(url).text
 
+    def get_json(self, url: str) -> dict:
+        """Fetches an arbitrary sec.gov JSON document (e.g. a filing's index.json)."""
+        return self._throttled_get(url).json()
+
     def get_company_concept(self, cik10: str, taxonomy: str, tag: str) -> dict | None:
         """Returns one XBRL concept's reported values for a company, or None if the
         company has never reported it (a normal, common case - not an error)."""

@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import get_settings
 from .database import ensure_schema
-from .routers import companies, events, spac_events
+from .routers import companies, events, funds, spac_events
 
 settings = get_settings()
 
@@ -22,6 +22,7 @@ app.add_middleware(
 app.include_router(companies.router)
 app.include_router(events.router)
 app.include_router(spac_events.router)
+app.include_router(funds.router)
 
 
 @app.get("/api/health")

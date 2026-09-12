@@ -76,3 +76,39 @@ class SpacEvent(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     company: Mapped["Company"] = relationship(back_populates="spac_events")
+
+
+class Fund(Base):
+    """An institutional manager we track 13F holdings for, picked by CIK
+    (not auto-discovered - added one at a time as the user names one)."""
+
+    __tablename__ = "funds"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    cik: Mapped[str] = mapped_column(String(10), unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(255))
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    holdings: Mapped[list["FundHolding"]] = relationship(back_populates="fund", cascade="all, delete-orphan")
+
+
+class FundHolding(Base):
+    """One line of a fund's LATEST Form 13F-HR information table. Only the most
+    recent filing is kept - re-ingesting a fund replaces its holdings wholesale
+    rather than accumulating history."""
+
+    __tablename__ = "fund_holdings"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    fund_id: Mapped[int] = mapped_column(ForeignKey("funds.id"), index=True)
+    accession_no: Mapped[str] = mapped_column(String(25), index=True)
+    period_of_report: Mapped[date] = mapped_column(Date, index=True)
+    filing_date: Mapped[date] = mapped_column(Date)
+    issuer_name: Mapped[str] = mapped_column(String(255))
+    cusip: Mapped[str] = mapped_column(String(20))
+    value_usd: Mapped[float] = mapped_column(Float)
+    shares: Mapped[float] = mapped_column(Float)
+    share_class: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    fund: Mapped["Fund"] = relationship(back_populates="holdings")
