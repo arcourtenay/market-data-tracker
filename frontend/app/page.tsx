@@ -21,15 +21,8 @@ type ManagementChangeEvent = {
   filing_date: string;
   report_date: string | null;
   filing_url: string;
-  people: string | null;
   company: Company;
 };
-
-function formatPeople(people: string | null): string {
-  if (people === null) return "Pending";
-  if (people === "") return "No new appointee named (departure only)";
-  return people;
-}
 
 const DEFAULT_FILED_FROM_PERIOD = { days: 7 } as const;
 const DEFAULT_MIN_MARKET_CAP_MILLIONS = "5000";
@@ -181,7 +174,6 @@ export default function Home() {
               <th>Company</th>
               <th>Ticker</th>
               <th>Filed</th>
-              <th>New director(s)/officer(s)</th>
               <th>Filing</th>
             </tr>
           </thead>
@@ -191,7 +183,6 @@ export default function Home() {
                 <td>{event.company.name}</td>
                 <td>{event.company.ticker || "—"}</td>
                 <td>{event.filing_date}</td>
-                <td className={event.people ? undefined : "muted"}>{formatPeople(event.people)}</td>
                 <td>
                   <a href={event.filing_url} target="_blank" rel="noreferrer">
                     View on SEC.gov
