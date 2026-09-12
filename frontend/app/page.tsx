@@ -69,9 +69,15 @@ export default function Home() {
       .finally(() => setLoading(false));
   }, [appliedFilters]);
 
-  function applyFilters(e: React.FormEvent) {
-    e.preventDefault();
-    setAppliedFilters({ search, filedFrom, filedTo, minMarketCap });
+  function applyNow(overrides: Partial<typeof appliedFilters> = {}) {
+    setAppliedFilters({ search, filedFrom, filedTo, minMarketCap, ...overrides });
+  }
+
+  function handleEnter(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      applyNow();
+    }
   }
 
   return (
@@ -81,7 +87,7 @@ export default function Home() {
         Director &amp; officer changes disclosed via Form 8-K, Item 5.02, across all SEC filers.
       </p>
 
-      <form className="filters" onSubmit={applyFilters}>
+      <div className="filters">
         <label>
           Min market cap ($M)
           <input
@@ -91,6 +97,7 @@ export default function Home() {
             placeholder="e.g. 5000"
             value={minMarketCap}
             onChange={(e) => setMinMarketCap(e.target.value)}
+            onKeyDown={handleEnter}
           />
         </label>
         <label>
@@ -100,18 +107,30 @@ export default function Home() {
             placeholder="e.g. Apple or AAPL"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={handleEnter}
           />
         </label>
         <label>
           Filed from
           <div className="filed-from-row">
-            <input type="date" value={filedFrom} onChange={(e) => setFiledFrom(e.target.value)} />
+            <input
+              type="date"
+              value={filedFrom}
+              onChange={(e) => {
+                setFiledFrom(e.target.value);
+                applyNow({ filedFrom: e.target.value });
+              }}
+            />
             {FILED_FROM_SHORTCUTS.map((shortcut) => (
               <button
                 key={shortcut.label}
                 type="button"
                 className="shortcut-btn"
-                onClick={() => setFiledFrom(isoDateAgo(shortcut.period))}
+                onClick={() => {
+                  const newDate = isoDateAgo(shortcut.period);
+                  setFiledFrom(newDate);
+                  applyNow({ filedFrom: newDate });
+                }}
               >
                 {shortcut.label}
               </button>
@@ -121,14 +140,28 @@ export default function Home() {
         <label>
           Filed to
           <div className="filed-to-row">
-            <input type="date" value={filedTo} onChange={(e) => setFiledTo(e.target.value)} />
-            <button type="button" className="shortcut-btn" onClick={() => setFiledTo(todayIsoDate())}>
+            <input
+              type="date"
+              value={filedTo}
+              onChange={(e) => {
+                setFiledTo(e.target.value);
+                applyNow({ filedTo: e.target.value });
+              }}
+            />
+            <button
+              type="button"
+              className="shortcut-btn"
+              onClick={() => {
+                const newDate = todayIsoDate();
+                setFiledTo(newDate);
+                applyNow({ filedTo: newDate });
+              }}
+            >
               Today
             </button>
           </div>
         </label>
-        <button type="submit">Apply</button>
-      </form>
+      </div>
 
       {error && <div className="error">Couldn&apos;t reach the API: {error}</div>}
 
