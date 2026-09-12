@@ -30,9 +30,17 @@ function formatUsdMillions(value: number): string {
   return (value / 1_000_000).toLocaleString(undefined, { maximumFractionDigits: 1 });
 }
 
+function formatQuarterLabel(periodOfReport: string): string {
+  const [year, month] = periodOfReport.split("-").map(Number);
+  const quarter = Math.ceil(month / 3);
+  return `Q${quarter} ${year}`;
+}
+
 export default function ThirteenFFilingsPage() {
   const [funds, setFunds] = useState<Fund[]>([]);
   const [selectedFundId, setSelectedFundId] = useState<number | null>(null);
+  const [quarters, setQuarters] = useState<string[]>([]);
+  const [selectedQuarter, setSelectedQuarter] = useState<string | null>(null);
   const [data, setData] = useState<FundHoldingsResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -53,38 +61,67 @@ export default function ThirteenFFilingsPage() {
   useEffect(() => {
     if (selectedFundId === null) return;
 
+    setError(null);
+    setQuarters([]);
+    setSelectedQuarter(null);
+
+    fetch(`${API_URL}/api/funds/${selectedFundId}/quarters`)
+      .then((res) => {
+        if (!res.ok) throw new Error(`API returned ${res.status}`);
+        return res.json();
+      })
+      .then((list: string[]) => {
+        setQuarters(list);
+        if (list.length > 0) setSelectedQuarter(list[0]);
+      })
+      .catch((err) => setError(err.message || "Failed to load quarters"));
+  }, [selectedFundId]);
+
+  useEffect(() => {
+    if (selectedFundId === null || selectedQuarter === null) return;
+
     setLoading(true);
     setError(null);
     setData(null);
 
-    fetch(`${API_URL}/api/funds/${selectedFundId}/holdings`)
+    const params = new URLSearchParams({ period: selectedQuarter });
+
+    fetch(`${API_URL}/api/funds/${selectedFundId}/holdings?${params.toString()}`)
       .then((res) => {
-        if (!res.ok) throw new Error(res.status === 404 ? "No holdings ingested yet for this fund" : `API returned ${res.status}`);
+        if (!res.ok) throw new Error(res.status === 404 ? "No holdings ingested yet for this fund/quarter" : `API returned ${res.status}`);
         return res.json();
       })
       .then((result: FundHoldingsResponse) => setData(result))
       .catch((err) => setError(err.message || "Failed to load holdings"))
       .finally(() => setLoading(false));
-  }, [selectedFundId]);
+  }, [selectedFundId, selectedQuarter]);
 
   return (
     <main>
       <h1>13F Filings</h1>
       <p className="subtitle">
-        Latest Form 13F-HR holdings disclosed by institutional managers, as % of total $M holdings disclosed.
+        Form 13F-HR holdings disclosed by institutional managers, as % of total $M holdings disclosed.
       </p>
 
       <div className="filters">
         <label>
           Fund
-          <select
-            value={selectedFundId ?? ""}
-            onChange={(e) => setSelectedFundId(Number(e.target.value))}
-          >
+          <select value={selectedFundId ?? ""} onChange={(e) => setSelectedFundId(Number(e.target.value))}>
             {funds.length === 0 && <option value="">No funds added yet</option>}
             {funds.map((fund) => (
               <option key={fund.id} value={fund.id}>
                 {fund.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Quarter
+          <select value={selectedQuarter ?? ""} onChange={(e) => setSelectedQuarter(e.target.value)}>
+            {quarters.length === 0 && <option value="">—</option>}
+            {quarters.map((quarter) => (
+              <option key={quarter} value={quarter}>
+                {formatQuarterLabel(quarter)}
               </option>
             ))}
           </select>
