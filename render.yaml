@@ -1,0 +1,81 @@
+databases:
+  - name: sec-mgmt-tracker-db
+    plan: free
+    postgresMajorVersion: "16"
+
+services:
+  - type: web
+    name: sec-mgmt-tracker-api
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: sec-mgmt-tracker-db
+          property: connectionString
+      - key: SEC_USER_AGENT
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: ANTHROPIC_MODEL
+        value: claude-haiku-4-5-20251001
+      - key: CORS_ORIGINS
+        sync: false
+
+  # Cron jobs are a paid Render feature. If you'd rather not pay for that yet,
+  # comment these out and run the same commands manually from the web
+  # service's Shell tab in the Render dashboard whenever you want fresh data.
+  - type: cron
+    name: sec-mgmt-tracker-ingest
+    runtime: python
+    plan: starter
+    rootDir: backend
+    schedule: "0 11 * * *" # daily, 11:00 UTC
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m app.ingest
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: sec-mgmt-tracker-db
+          property: connectionString
+      - key: SEC_USER_AGENT
+        sync: false
+
+  - type: cron
+    name: sec-mgmt-tracker-extract-people
+    runtime: python
+    plan: starter
+    rootDir: backend
+    schedule: "30 11 * * *" # daily, 11:30 UTC (after ingest)
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m app.extract_people
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: sec-mgmt-tracker-db
+          property: connectionString
+      - key: SEC_USER_AGENT
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: ANTHROPIC_MODEL
+        value: claude-haiku-4-5-20251001
+
+  - type: cron
+    name: sec-mgmt-tracker-enrich-market-cap
+    runtime: python
+    plan: starter
+    rootDir: backend
+    schedule: "0 12 * * *" # daily, 12:00 UTC (after the above)
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m app.enrich_market_cap
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: sec-mgmt-tracker-db
+          property: connectionString
+      - key: SEC_USER_AGENT
+        sync: false
