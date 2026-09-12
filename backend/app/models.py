@@ -30,6 +30,7 @@ class Company(Base):
     market_cap_updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     events: Mapped[list["ManagementChangeEvent"]] = relationship(back_populates="company")
+    spac_events: Mapped[list["SpacEvent"]] = relationship(back_populates="company")
 
 
 class ManagementChangeEvent(Base):
@@ -51,3 +52,27 @@ class ManagementChangeEvent(Base):
     people: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     company: Mapped["Company"] = relationship(back_populates="events")
+
+
+class SpacEvent(Base):
+    """A SPAC lifecycle event: either its IPO (stage='ipo', signaled by a 424B4
+    prospectus from a SIC-6770 'Blank Check' company) or its de-SPAC merger
+    completion (stage='merger_completed', signaled by an 8-K Item 5.06 'Change
+    in Shell Company Status')."""
+
+    __tablename__ = "spac_events"
+    __table_args__ = (UniqueConstraint("accession_no", name="uq_spac_event_accession_no"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    company_id: Mapped[int] = mapped_column(ForeignKey("companies.id"), index=True)
+    accession_no: Mapped[str] = mapped_column(String(25), index=True)
+    form_type: Mapped[str] = mapped_column(String(20))
+    items: Mapped[str] = mapped_column(String(100))
+    stage: Mapped[str] = mapped_column(String(20), index=True)
+    filing_date: Mapped[date] = mapped_column(Date, index=True)
+    report_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    primary_document: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    filing_url: Mapped[str] = mapped_column(String(500))
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    company: Mapped["Company"] = relationship(back_populates="spac_events")

@@ -110,12 +110,15 @@ h1 {
   color: var(--muted);
 }
 
-.filters input {
+.filters input,
+.filters select {
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 7px 9px;
   font-size: 14px;
   min-width: 160px;
+  background: var(--panel);
+  color: var(--text);
 }
 
 .filters button {
@@ -231,4 +234,22 @@ a:hover {
   padding: 1px 6px;
   font-size: 11px;
   margin-right: 4px;
+}
+
+.stage-tag {
+  display: inline-block;
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.stage-ipo {
+  background: #eef2ff;
+  color: #1f3b8f;
+}
+
+.stage-merger_completed {
+  background: #e7f7ee;
+  color: #1a7f4b;
 }

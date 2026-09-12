@@ -1,7 +1,14 @@
-"""Ingests management-change events (Form 8-K, Item 5.02) for SEC-listed companies.
+"""Ingests events from SEC EDGAR for every SEC-listed company, one pass per
+company across all signals we track (so we only fetch each company's filing
+history once, not once per signal):
 
-Item 5.02 covers the departure/election of directors and officers, so it's
-the standard structured signal for "management changes" in EDGAR data.
+  - Management changes: Form 8-K, Item 5.02 (departure/election of directors
+    or officers).
+  - SPAC IPOs: Form 424B4 (final IPO prospectus) filed by a company with SIC
+    6770 ("Blank Checks" - the SEC's own classification for SPACs).
+  - De-SPAC merger completions: Form 8-K, Item 5.06 ("Change in Shell Company
+    Status") - filed when a shell company like a SPAC completes its merger
+    and becomes an operating business.
 
 Usage:
     python -m app.ingest                # full run, all companies
@@ -15,11 +22,13 @@ from datetime import date, datetime
 from sqlalchemy.orm import Session
 
 from .database import SessionLocal, ensure_schema
-from .models import Company, ManagementChangeEvent
+from .models import Company, ManagementChangeEvent, SpacEvent
 from .sec_client import SecClient, build_filing_url
 
 MANAGEMENT_CHANGE_ITEM = "5.02"
-TARGET_FORM_PREFIX = "8-K"
+DESPAC_ITEM = "5.06"
+SPAC_IPO_FORM = "424B4"
+SPAC_IPO_SIC = "6770"
 
 
 def _parse_date(value: str | None) -> date | None:
@@ -42,7 +51,7 @@ def _upsert_company(db: Session, cik10: str, name: str, ticker: str | None, sic:
     return company
 
 
-def _ingest_company_filings(db: Session, client: SecClient, cik10: str, ticker: str | None) -> int:
+def _ingest_company_filings(db: Session, client: SecClient, cik10: str, ticker: str | None) -> tuple[int, int]:
     submissions = client.get_submissions(cik10)
     name = submissions.get("name") or ticker or cik10
     sic = submissions.get("sic")
@@ -59,37 +68,63 @@ def _ingest_company_filings(db: Session, client: SecClient, cik10: str, ticker: 
     primary_documents = recent.get("primaryDocument", [])
 
     new_events = 0
+    new_spac_events = 0
+
     for idx, form in enumerate(forms):
-        if not form.startswith(TARGET_FORM_PREFIX):
-            continue
-        items = items_list[idx] if idx < len(items_list) else ""
-        if MANAGEMENT_CHANGE_ITEM not in [i.strip() for i in items.split(",")]:
-            continue
-
         accession_no = accession_numbers[idx]
-        exists = (
-            db.query(ManagementChangeEvent)
-            .filter(ManagementChangeEvent.accession_no == accession_no)
-            .one_or_none()
-        )
-        if exists:
-            continue
-
+        items = items_list[idx] if idx < len(items_list) else ""
+        item_list = [i.strip() for i in items.split(",") if i.strip()]
         primary_document = primary_documents[idx] if idx < len(primary_documents) else None
-        event = ManagementChangeEvent(
-            company_id=company.id,
-            accession_no=accession_no,
-            form_type=form,
-            items=items,
-            filing_date=_parse_date(filing_dates[idx]),
-            report_date=_parse_date(report_dates[idx] if idx < len(report_dates) else None),
-            primary_document=primary_document,
-            filing_url=build_filing_url(cik10, accession_no, primary_document),
-        )
-        db.add(event)
-        new_events += 1
+        filing_date = _parse_date(filing_dates[idx])
+        report_date = _parse_date(report_dates[idx] if idx < len(report_dates) else None)
+        filing_url = build_filing_url(cik10, accession_no, primary_document)
 
-    return new_events
+        if form.startswith("8-K") and MANAGEMENT_CHANGE_ITEM in item_list:
+            exists = (
+                db.query(ManagementChangeEvent)
+                .filter(ManagementChangeEvent.accession_no == accession_no)
+                .one_or_none()
+            )
+            if not exists:
+                db.add(
+                    ManagementChangeEvent(
+                        company_id=company.id,
+                        accession_no=accession_no,
+                        form_type=form,
+                        items=items,
+                        filing_date=filing_date,
+                        report_date=report_date,
+                        primary_document=primary_document,
+                        filing_url=filing_url,
+                    )
+                )
+                new_events += 1
+
+        stage = None
+        if form.startswith("8-K") and DESPAC_ITEM in item_list:
+            stage = "merger_completed"
+        elif form == SPAC_IPO_FORM and sic == SPAC_IPO_SIC:
+            stage = "ipo"
+
+        if stage:
+            exists = db.query(SpacEvent).filter(SpacEvent.accession_no == accession_no).one_or_none()
+            if not exists:
+                db.add(
+                    SpacEvent(
+                        company_id=company.id,
+                        accession_no=accession_no,
+                        form_type=form,
+                        items=items,
+                        stage=stage,
+                        filing_date=filing_date,
+                        report_date=report_date,
+                        primary_document=primary_document,
+                        filing_url=filing_url,
+                    )
+                )
+                new_spac_events += 1
+
+    return new_events, new_spac_events
 
 
 def run(limit: int | None = None) -> None:
@@ -103,23 +138,32 @@ def run(limit: int | None = None) -> None:
 
     total = len(companies)
     total_new_events = 0
+    total_new_spac_events = 0
 
     with SessionLocal() as db:
         for idx, entry in enumerate(companies, start=1):
             cik10 = str(entry["cik_str"]).zfill(10)
             ticker = entry.get("ticker")
             try:
-                new_events = _ingest_company_filings(db, client, cik10, ticker)
+                new_events, new_spac_events = _ingest_company_filings(db, client, cik10, ticker)
                 total_new_events += new_events
+                total_new_spac_events += new_spac_events
                 db.commit()
             except Exception as exc:  # noqa: BLE001 - keep ingesting other companies
                 db.rollback()
                 print(f"  [warn] {ticker or cik10}: {exc}", file=sys.stderr)
 
             if idx % 50 == 0 or idx == total:
-                print(f"  processed {idx}/{total} companies, {total_new_events} new events so far")
+                print(
+                    f"  processed {idx}/{total} companies, "
+                    f"{total_new_events} new management-change events, "
+                    f"{total_new_spac_events} new SPAC events so far"
+                )
 
-    print(f"Done. {total_new_events} new management-change events ingested.")
+    print(
+        f"Done. {total_new_events} new management-change events, "
+        f"{total_new_spac_events} new SPAC events ingested."
+    )
 
 
 def main() -> None:
