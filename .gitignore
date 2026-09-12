@@ -14,6 +14,9 @@ frontend/.env.local
 # Logs from the detached local dev servers
 logs/
 
+# Contains real credentials for the scheduled data-refresh task - never commit
+refresh_data.ps1
+
 # OS
 .DS_Store
 Thumbs.db

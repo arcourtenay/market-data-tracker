@@ -53,7 +53,7 @@ type ManagementChangeEvent = {
 
 function formatPeople(people: string | null): string {
   if (people === null) return "Pending";
-  if (people === "") return "—";
+  if (people === "") return "No new appointee named (departure only)";
   return people;
 }
 
@@ -183,7 +183,7 @@ export default function Home() {
                 <td>{event.company.name}</td>
                 <td>{event.company.ticker || "—"}</td>
                 <td>{event.filing_date}</td>
-                <td className={event.people === null ? "muted" : undefined}>{formatPeople(event.people)}</td>
+                <td className={event.people ? undefined : "muted"}>{formatPeople(event.people)}</td>
                 <td>
                   <a href={event.filing_url} target="_blank" rel="noreferrer">
                     View on SEC.gov
