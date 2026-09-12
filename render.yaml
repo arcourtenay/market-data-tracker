@@ -12,6 +12,8 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.10"
       - key: DATABASE_URL
         fromDatabase:
           name: sec-mgmt-tracker-db
@@ -37,6 +39,8 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: python -m app.ingest
     envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.10"
       - key: DATABASE_URL
         fromDatabase:
           name: sec-mgmt-tracker-db
@@ -53,6 +57,8 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: python -m app.extract_people
     envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.10"
       - key: DATABASE_URL
         fromDatabase:
           name: sec-mgmt-tracker-db
@@ -73,6 +79,8 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: python -m app.enrich_market_cap
     envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.10"
       - key: DATABASE_URL
         fromDatabase:
           name: sec-mgmt-tracker-db
