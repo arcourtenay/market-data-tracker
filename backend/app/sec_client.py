@@ -7,6 +7,7 @@ config and self-throttles well under the limit.
 """
 
 import time
+from datetime import date
 
 import requests
 
@@ -15,6 +16,7 @@ from .config import get_settings
 _TICKERS_URL = "https://www.sec.gov/files/company_tickers.json"
 _SUBMISSIONS_URL = "https://data.sec.gov/submissions/CIK{cik10}.json"
 _COMPANY_CONCEPT_URL = "https://data.sec.gov/api/xbrl/companyconcept/CIK{cik10}/{taxonomy}/{tag}.json"
+_DAILY_INDEX_URL = "https://www.sec.gov/Archives/edgar/daily-index/{year}/QTR{quarter}/master.{yyyymmdd}.idx"
 
 _MIN_INTERVAL_SECONDS = 0.15  # ~6-7 req/sec, safely under SEC's ~10 req/sec guidance
 
@@ -62,6 +64,44 @@ class SecClient:
             if exc.response is not None and exc.response.status_code == 404:
                 return None
             raise
+
+    def get_daily_index(self, day: date) -> list[dict]:
+        """Returns every filing SEC's daily index lists for this date (CIK, name,
+        form, filename), across ALL filers - the fast way to find "what got filed
+        today" without asking each of the ~10,000+ companies individually.
+
+        Returns [] for a date with no index yet (today's, before SEC publishes it)
+        or none at all (weekends/holidays) - not an error, just nothing filed."""
+        quarter = (day.month - 1) // 3 + 1
+        url = _DAILY_INDEX_URL.format(year=day.year, quarter=quarter, yyyymmdd=day.strftime("%Y%m%d"))
+        try:
+            text = self._throttled_get(url).text
+        except requests.HTTPError as exc:
+            if exc.response is not None and exc.response.status_code in (403, 404):
+                return []
+            raise
+
+        lines = text.splitlines()
+        try:
+            separator_idx = next(i for i, line in enumerate(lines) if set(line.strip()) == {"-"})
+        except StopIteration:
+            return []
+
+        entries = []
+        for line in lines[separator_idx + 1 :]:
+            parts = line.split("|")
+            if len(parts) != 5:
+                continue
+            cik, name, form, date_filed, filename = parts
+            entries.append(
+                {
+                    "cik10": cik.strip().zfill(10),
+                    "name": name.strip(),
+                    "form": form.strip(),
+                    "filename": filename.strip(),
+                }
+            )
+        return entries
 
 
 def build_filing_url(cik: str, accession_no: str, primary_document: str | None) -> str:
