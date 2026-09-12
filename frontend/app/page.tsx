@@ -167,6 +167,7 @@ export default function Home() {
       )}
 
       {!error && events.length > 0 && (
+        <div className="table-scroll">
         <table>
           <thead>
             <tr>
@@ -193,6 +194,7 @@ export default function Home() {
             ))}
           </tbody>
         </table>
+        </div>
       )}
     </main>
   );

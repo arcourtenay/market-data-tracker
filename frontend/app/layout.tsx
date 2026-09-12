@@ -1,15 +1,21 @@
 import type { Metadata } from "next";
+import Sidebar from "./Sidebar";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "SEC Management Change Tracker",
-  description: "Tracks director/officer changes disclosed across SEC filers",
+  title: "SEC Tracker",
+  description: "Tracks disclosures across SEC filers: management changes, SPAC IPOs, and 13F filings",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <div className="app-shell">
+          <Sidebar />
+          <div className="app-content">{children}</div>
+        </div>
+      </body>
     </html>
   );
 }
