@@ -75,7 +75,7 @@ export default function Home() {
 
   return (
     <main>
-      <h1>SEC Management Change Tracker</h1>
+      <h1>Management Changes</h1>
       <p className="subtitle">
         Director &amp; officer changes disclosed via Form 8-K, Item 5.02, across all SEC filers.
       </p>
