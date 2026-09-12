@@ -30,18 +30,21 @@ const STAGE_LABELS: Record<SpacEvent["stage"], string> = {
   merger_completed: "Merger completed",
 };
 
-const DEFAULT_FILED_FROM_PERIOD = { months: 1 } as const;
+const DEFAULT_FILED_FROM_PERIOD = { months: 6 } as const;
+const DEFAULT_MIN_MARKET_CAP_MILLIONS = "0";
 
 export default function SpacIposPage() {
   const [search, setSearch] = useState("");
   const [stage, setStage] = useState<"" | SpacEvent["stage"]>("");
   const [filedFrom, setFiledFrom] = useState(() => isoDateAgo(DEFAULT_FILED_FROM_PERIOD));
   const [filedTo, setFiledTo] = useState(() => todayIsoDate());
+  const [minMarketCap, setMinMarketCap] = useState(DEFAULT_MIN_MARKET_CAP_MILLIONS);
   const [appliedFilters, setAppliedFilters] = useState(() => ({
     search: "",
     stage: "" as "" | SpacEvent["stage"],
     filedFrom: isoDateAgo(DEFAULT_FILED_FROM_PERIOD),
     filedTo: todayIsoDate(),
+    minMarketCap: DEFAULT_MIN_MARKET_CAP_MILLIONS,
   }));
   const [events, setEvents] = useState<SpacEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -53,6 +56,7 @@ export default function SpacIposPage() {
     if (appliedFilters.stage) params.set("stage", appliedFilters.stage);
     if (appliedFilters.filedFrom) params.set("filed_from", appliedFilters.filedFrom);
     if (appliedFilters.filedTo) params.set("filed_to", appliedFilters.filedTo);
+    if (appliedFilters.minMarketCap) params.set("min_market_cap_millions", appliedFilters.minMarketCap);
 
     setLoading(true);
     setError(null);
@@ -69,7 +73,7 @@ export default function SpacIposPage() {
 
   function applyFilters(e: React.FormEvent) {
     e.preventDefault();
-    setAppliedFilters({ search, stage, filedFrom, filedTo });
+    setAppliedFilters({ search, stage, filedFrom, filedTo, minMarketCap });
   }
 
   return (
@@ -81,6 +85,17 @@ export default function SpacIposPage() {
       </p>
 
       <form className="filters" onSubmit={applyFilters}>
+        <label>
+          Min market cap ($M)
+          <input
+            type="number"
+            min={0}
+            step={100}
+            placeholder="e.g. 0"
+            value={minMarketCap}
+            onChange={(e) => setMinMarketCap(e.target.value)}
+          />
+        </label>
         <label>
           Company / ticker
           <input
