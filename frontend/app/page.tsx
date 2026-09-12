@@ -24,7 +24,7 @@ type ManagementChangeEvent = {
   company: Company;
 };
 
-const DEFAULT_FILED_FROM_PERIOD = { days: 7 } as const;
+const DEFAULT_FILED_FROM_PERIOD = { months: 6 } as const;
 const DEFAULT_MIN_MARKET_CAP_MILLIONS = "5000";
 
 export default function Home() {
