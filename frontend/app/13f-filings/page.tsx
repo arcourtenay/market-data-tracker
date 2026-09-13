@@ -76,6 +76,7 @@ export default function ThirteenFFilingsPage() {
 
   useEffect(() => {
     if (selectedFundId === null) return;
+    let ignore = false;
 
     setError(null);
     setQuarters([]);
@@ -87,14 +88,28 @@ export default function ThirteenFFilingsPage() {
         return res.json();
       })
       .then((list: string[]) => {
+        if (ignore) return;
         setQuarters(list);
         if (list.length > 0) setSelectedQuarter(list[0]);
       })
-      .catch((err) => setError(err.message || "Failed to load quarters"));
+      .catch((err) => {
+        if (ignore) return;
+        setError(err.message || "Failed to load quarters");
+      });
+
+    // Guards against a slow response for a fund the user has since switched
+    // away from arriving after (and overwriting) the currently selected
+    // fund's quarters - without this, quickly switching funds could leave
+    // selectedQuarter set to a period that doesn't exist for the fund now
+    // showing, which the holdings effect below would then 404 on.
+    return () => {
+      ignore = true;
+    };
   }, [selectedFundId]);
 
   useEffect(() => {
     if (selectedFundId === null || selectedQuarter === null) return;
+    let ignore = false;
 
     setLoading(true);
     setError(null);
@@ -107,9 +122,21 @@ export default function ThirteenFFilingsPage() {
         if (!res.ok) throw new Error(res.status === 404 ? "No holdings ingested yet for this fund/quarter" : `API returned ${res.status}`);
         return res.json();
       })
-      .then((result: FundHoldingsResponse) => setData(result))
-      .catch((err) => setError(err.message || "Failed to load holdings"))
-      .finally(() => setLoading(false));
+      .then((result: FundHoldingsResponse) => {
+        if (ignore) return;
+        setData(result);
+      })
+      .catch((err) => {
+        if (ignore) return;
+        setError(err.message || "Failed to load holdings");
+      })
+      .finally(() => {
+        if (!ignore) setLoading(false);
+      });
+
+    return () => {
+      ignore = true;
+    };
   }, [selectedFundId, selectedQuarter]);
 
   return (
