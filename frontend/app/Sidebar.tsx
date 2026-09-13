@@ -4,8 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const NAV_ITEMS = [
-  { href: "/", label: "SPAC IPOs" },
   { href: "/13f-filings", label: "13F Filings" },
+  { href: "/", label: "SPAC IPOs" },
   { href: "/director-share-buying", label: "Director Share Buying" },
 ];
 
