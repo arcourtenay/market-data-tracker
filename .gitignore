@@ -23,3 +23,4 @@ Thumbs.db
 
 # Contains real database credentials - never commit
 run_backfill_spac.ps1
+run_bulk_funds.ps1
