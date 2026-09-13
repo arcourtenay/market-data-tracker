@@ -1,3 +1,4 @@
+from collections import defaultdict
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -49,7 +50,6 @@ def get_fund_holdings(
     holdings = (
         db.query(FundHolding)
         .filter(FundHolding.fund_id == fund_id, FundHolding.period_of_report == target_period)
-        .order_by(FundHolding.value_usd.desc())
         .all()
     )
     if not holdings:
@@ -58,7 +58,7 @@ def get_fund_holdings(
     total_value_usd = sum(h.value_usd for h in holdings)
 
     # Quarter-over-quarter share count change: find the quarter immediately
-    # before this one (for this fund) and compare shares per CUSIP.
+    # before this one (for this fund) and compare shares by issuer.
     all_periods = [
         row[0]
         for row in db.query(FundHolding.period_of_report)
@@ -67,7 +67,7 @@ def get_fund_holdings(
         .order_by(FundHolding.period_of_report.desc())
         .all()
     ]
-    prior_shares_by_cusip: dict[str, float] = {}
+    prior_shares_by_issuer: dict[str, float] = defaultdict(float)
     try:
         idx = all_periods.index(target_period)
         prior_period = all_periods[idx + 1] if idx + 1 < len(all_periods) else None
@@ -75,17 +75,43 @@ def get_fund_holdings(
         prior_period = None
     if prior_period is not None:
         prior_rows = (
-            db.query(FundHolding.cusip, FundHolding.shares)
+            db.query(FundHolding.issuer_name, FundHolding.shares)
             .filter(FundHolding.fund_id == fund_id, FundHolding.period_of_report == prior_period)
             .all()
         )
-        prior_shares_by_cusip = {cusip: shares for cusip, shares in prior_rows}
+        for issuer_name, shares in prior_rows:
+            prior_shares_by_issuer[issuer_name] += shares
 
-    def share_change_pct(h: FundHolding) -> float | None:
-        prior_shares = prior_shares_by_cusip.get(h.cusip)
+    # A fund can report the same issuer as several lines - different CUSIPs for
+    # different share classes, or split across sub-accounts/managers - so group
+    # by issuer name into one row each, summing value and shares across every
+    # line for that issuer (including all its share classes).
+    grouped: dict[str, list[FundHolding]] = defaultdict(list)
+    for h in holdings:
+        grouped[h.issuer_name].append(h)
+
+    def share_change_pct(issuer_name: str, shares: float) -> float | None:
+        prior_shares = prior_shares_by_issuer.get(issuer_name)
         if not prior_shares:
             return None
-        return (h.shares - prior_shares) / prior_shares * 100
+        return (shares - prior_shares) / prior_shares * 100
+
+    aggregated = []
+    for issuer_name, rows in grouped.items():
+        agg_value = sum(r.value_usd for r in rows)
+        agg_shares = sum(r.shares for r in rows)
+        aggregated.append(
+            {
+                "issuer_name": issuer_name,
+                "cusip": rows[0].cusip,
+                "value_usd": agg_value,
+                "shares": agg_shares,
+                "share_class": rows[0].share_class if len(rows) == 1 else None,
+                "weight_pct": (agg_value / total_value_usd * 100) if total_value_usd else 0.0,
+                "share_change_pct": share_change_pct(issuer_name, agg_shares),
+            }
+        )
+    aggregated.sort(key=lambda h: h["value_usd"], reverse=True)
 
     return {
         "fund": fund,
@@ -93,16 +119,5 @@ def get_fund_holdings(
         "prior_period_of_report": prior_period,
         "filing_date": holdings[0].filing_date,
         "total_value_usd": total_value_usd,
-        "holdings": [
-            {
-                "issuer_name": h.issuer_name,
-                "cusip": h.cusip,
-                "value_usd": h.value_usd,
-                "shares": h.shares,
-                "share_class": h.share_class,
-                "weight_pct": (h.value_usd / total_value_usd * 100) if total_value_usd else 0.0,
-                "share_change_pct": share_change_pct(h),
-            }
-            for h in holdings
-        ],
+        "holdings": aggregated,
     }
