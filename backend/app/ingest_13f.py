@@ -131,20 +131,24 @@ def run(cik: str, name: str, quarters: int = 4) -> None:
     client = SecClient()
 
     with SessionLocal() as db:
+        submissions = client.get_submissions(cik10)
+        # Use SEC's own registered name for this CIK, not whatever we were told to
+        # call it - that's the technically-correct name of the actual filer.
+        official_name = submissions.get("name") or name
+
         fund = db.query(Fund).filter(Fund.cik == cik10).one_or_none()
         if fund is None:
-            fund = Fund(cik=cik10, name=name)
+            fund = Fund(cik=cik10, name=official_name)
             db.add(fund)
         else:
-            fund.name = name
+            fund.name = official_name
         db.flush()
         fund_id = fund.id
         db.commit()
 
-        submissions = client.get_submissions(cik10)
         filings = _recent_13f_hr_filings(submissions, quarters)
         if not filings:
-            print(f"No 13F-HR filings found for {name} ({cik10})")
+            print(f"No 13F-HR filings found for {official_name} ({cik10})")
             return
 
         for filing in filings:
@@ -152,7 +156,7 @@ def run(cik: str, name: str, quarters: int = 4) -> None:
             if count is not None:
                 print(f"  {filing['period_of_report']}: {count} holdings (filed {filing['filing_date']})")
 
-    print(f"Done. Ingested {len(filings)} quarter(s) for {name}.")
+    print(f"Done. Ingested {len(filings)} quarter(s) for {official_name}.")
 
 
 def main() -> None:

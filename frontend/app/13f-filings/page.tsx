@@ -125,7 +125,7 @@ export default function ThirteenFFilingsPage() {
             {funds.length === 0 && <option value="">No funds added yet</option>}
             {funds.map((fund) => (
               <option key={fund.id} value={fund.id}>
-                {fund.name}
+                {toTitleCase(fund.name)}
               </option>
             ))}
           </select>

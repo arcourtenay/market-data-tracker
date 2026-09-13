@@ -13,7 +13,7 @@ router = APIRouter(prefix="/api/funds", tags=["funds"])
 
 @router.get("", response_model=list[FundOut])
 def list_funds(db: Session = Depends(get_db)):
-    return db.query(Fund).order_by(Fund.name).all()
+    return db.query(Fund).order_by(func.lower(Fund.name)).all()
 
 
 @router.get("/{fund_id}/quarters", response_model=list[date])
