@@ -22,6 +22,12 @@ SEC-listed company:
     S-1 preceded by periodic reports means the company was already public
     (e.g. it originally listed via a route other than S-1, and is now filing
     one for some other registered offering) rather than newly going public.
+    Both are ALSO excluded if filed before the company's own earliest 8-K
+    Item 5.06 (de-SPAC completion), if it ever had one - SEC's submissions
+    API only reports a company's CURRENT SIC, which gets updated to the
+    operating business's SIC once a SPAC completes its merger, so "SIC !=
+    6770" alone doesn't catch a de-SPAC'd company's original SPAC-era
+    S-1/424B4 (filed back when it genuinely was a blank-check company).
     Caveat: for a company old enough that its true first S-1/424B4 has
     rolled off SEC's ~1000-entry "recent" filings window, the earliest
     *visible* one could still be a later refiling/follow-on - a known,
@@ -120,6 +126,19 @@ def _ingest_company_filings(db: Session, client: SecClient, cik10: str, ticker: 
         and earliest_periodic_date < earliest_s1_form_date
     )
 
+    # A company's *current* SIC (all we get from submissions) reflects its business today,
+    # not at filing time - once a SPAC completes its de-SPAC merger, SEC updates its SIC to
+    # the new operating business, so "sic != SPAC_IPO_SIC" alone would misread the SPAC's own
+    # original 424B4/S-1 (filed back when it WAS a blank-check company) as that operating
+    # company's IPO. Exclude anything filed before the company's earliest 8-K Item 5.06 (its
+    # own de-SPAC completion, if it ever had one) to catch this regardless of current SIC.
+    despac_dates = [
+        _parse_date(fd)
+        for f, fd, its in zip(forms, filing_dates, items_list)
+        if f.startswith("8-K") and DESPAC_ITEM in [i.strip() for i in its.split(",") if i.strip()]
+    ]
+    earliest_despac_date = min(despac_dates) if despac_dates else None
+
     new_spac_events = 0
     new_ipo_events = 0
 
@@ -156,12 +175,15 @@ def _ingest_company_filings(db: Session, client: SecClient, cik10: str, ticker: 
                 )
                 new_spac_events += 1
         else:
+            predates_own_despac = earliest_despac_date is not None and filing_date < earliest_despac_date
+
             ipo_stage = None
             if (
                 form == S1_INITIAL_FORM
                 and sic != SPAC_IPO_SIC
                 and filing_date == earliest_s1_form_date
                 and not already_reporting_before_s1
+                and not predates_own_despac
             ):
                 ipo_stage = "s1_filed"
             elif (
@@ -170,6 +192,7 @@ def _ingest_company_filings(db: Session, client: SecClient, cik10: str, ticker: 
                 and has_s1
                 and filing_date == earliest_ipo_form_date
                 and not already_reporting_before_s1
+                and not predates_own_despac
             ):
                 ipo_stage = "priced"
 

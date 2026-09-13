@@ -12,6 +12,7 @@ class CompanyOut(BaseModel):
     ticker: str | None
     sic: str | None
     sic_description: str | None
+    ipo_proceeds_usd: float | None
 
 
 class SpacEventOut(BaseModel):

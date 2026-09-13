@@ -29,6 +29,13 @@ class Company(Base):
     market_cap_usd: Mapped[float | None] = mapped_column(Float, nullable=True)
     market_cap_updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
+    # IPO proceeds from SEC XBRL (us-gaap:ProceedsFromIssuanceInitialPublicOffering or
+    # ProceedsFromIssuanceOfCommonStock, whichever the filer used), for companies with an IPO
+    # or SPAC-IPO event. Usually not available until the company's first post-IPO 10-Q/10-K -
+    # left null (and retried on each app.enrich_market_cap run) until then, a one-time fixed
+    # historical fact once found.
+    ipo_proceeds_usd: Mapped[float | None] = mapped_column(Float, nullable=True)
+
     spac_events: Mapped[list["SpacEvent"]] = relationship(back_populates="company")
     ipo_events: Mapped[list["IpoEvent"]] = relationship(back_populates="company")
 

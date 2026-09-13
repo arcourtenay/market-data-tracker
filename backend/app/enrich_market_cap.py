@@ -1,17 +1,22 @@
 """Fills in Company.market_cap_usd = live Yahoo Finance price x SEC-reported
 shares outstanding (dei:EntityCommonStockSharesOutstanding, from the most
-recent 10-Q/10-K cover page).
+recent 10-Q/10-K cover page), and Company.ipo_proceeds_usd for companies
+with an IPO or SPAC-IPO event.
 
 EDGAR has no live market cap field, and Yahoo's own market-cap/shares fields
 now require an auth crumb we don't have - so this combines the two: a live
 price alone means nothing without a share count, and a share count alone
 doesn't move with the market. Together they approximate live market cap.
 
-Two phases each run:
+Three phases each run:
   1. Shares outstanding rarely changes, so it's only looked up once per
      company (gated by shares_outstanding_checked_at) via SEC XBRL.
   2. Price is refetched from Yahoo for every company with a ticker on every
      run, so re-running this periodically keeps market_cap_usd close to live.
+  3. IPO proceeds (a fixed historical fact, from SEC XBRL
+     us-gaap:ProceedsFromIssuanceInitialPublicOffering / ProceedsFromIssuanceOfCommonStock)
+     is usually not available until the company's first post-IPO 10-Q/10-K,
+     so this keeps retrying every run for companies still missing it.
 
 Usage:
     python -m app.enrich_market_cap
@@ -22,10 +27,14 @@ import argparse
 import sys
 from datetime import date, datetime, timedelta, timezone
 
+from sqlalchemy import func
+
 from .database import SessionLocal, ensure_schema
-from .models import Company
+from .models import Company, IpoEvent, SpacEvent
 from .sec_client import SecClient
 from .yahoo_client import YahooClient
+
+_IPO_PROCEEDS_TAGS = ("ProceedsFromIssuanceInitialPublicOffering", "ProceedsFromIssuanceOfCommonStock")
 
 # Some multi-class-share filers (e.g. Berkshire Hathaway) stopped reporting a
 # plain, non-dimensional EntityCommonStockSharesOutstanding years ago once they
@@ -109,11 +118,77 @@ def _refresh_prices(db, yahoo_client: YahooClient, limit: int | None) -> None:
             print(f"  processed {idx}/{total}")
 
 
+def _matching_ipo_proceeds(concept_json: dict, event_date: date) -> float | None:
+    """Picks the reported amount for the duration period containing the IPO
+    filing date, preferring the shortest (most precise) matching period -
+    XBRL repeats the same total as a comparative figure in later quarters'
+    filings, so this avoids just grabbing whichever one happens to load."""
+    best: tuple[int, float] | None = None
+    for entry in concept_json.get("units", {}).get("USD", []):
+        val = entry.get("val")
+        start, end = entry.get("start"), entry.get("end")
+        if not val or not start or not end:
+            continue
+        try:
+            period_start, period_end = date.fromisoformat(start), date.fromisoformat(end)
+        except ValueError:
+            continue
+        if period_start <= event_date <= period_end:
+            duration = (period_end - period_start).days
+            if best is None or duration < best[0]:
+                best = (duration, val)
+    return best[1] if best else None
+
+
+def _fill_ipo_proceeds(db, sec_client: SecClient, limit: int | None) -> None:
+    """Only checks companies with a known IPO/SPAC-IPO event and still-missing
+    proceeds - most companies never file this concept at all, so checking
+    everyone would be almost all wasted requests."""
+    event_dates: dict[int, date] = {}
+    for company_id, filing_date in db.query(SpacEvent.company_id, func.min(SpacEvent.filing_date)).filter(
+        SpacEvent.stage == "ipo"
+    ).group_by(SpacEvent.company_id):
+        event_dates[company_id] = filing_date
+    for company_id, filing_date in db.query(IpoEvent.company_id, func.min(IpoEvent.filing_date)).filter(
+        IpoEvent.stage == "priced"
+    ).group_by(IpoEvent.company_id):
+        event_dates.setdefault(company_id, filing_date)
+
+    if not event_dates:
+        return
+
+    query = db.query(Company).filter(Company.id.in_(event_dates.keys()), Company.ipo_proceeds_usd.is_(None))
+    if limit:
+        query = query.limit(limit)
+    companies = query.all()
+
+    total = len(companies)
+    print(f"ipo proceeds: {total} compan(ies) to check")
+
+    for idx, company in enumerate(companies, start=1):
+        try:
+            event_date = event_dates[company.id]
+            for tag in _IPO_PROCEEDS_TAGS:
+                concept = sec_client.get_company_concept(company.cik, "us-gaap", tag)
+                value = _matching_ipo_proceeds(concept, event_date) if concept else None
+                if value:
+                    company.ipo_proceeds_usd = value
+                    db.commit()
+                    break
+        except Exception as exc:  # noqa: BLE001 - keep going, leave this row for the next run
+            db.rollback()
+            print(f"  [warn] {company.ticker or company.cik}: {exc}", file=sys.stderr)
+
+        if idx % 50 == 0 or idx == total:
+            print(f"  processed {idx}/{total}")
+
+
 def run(limit: int | None = None) -> None:
     ensure_schema()
     with SessionLocal() as db:
         _fill_shares_outstanding(db, SecClient(), limit)
         _refresh_prices(db, YahooClient(), limit)
+        _fill_ipo_proceeds(db, SecClient(), limit)
     print("Done.")
 
 

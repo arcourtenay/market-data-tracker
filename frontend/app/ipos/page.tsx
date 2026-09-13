@@ -11,7 +11,13 @@ type Company = {
   ticker: string | null;
   sic: string | null;
   sic_description: string | null;
+  ipo_proceeds_usd: number | null;
 };
+
+function formatIpoProceeds(value: number | null): string {
+  if (value === null) return "—";
+  return `$${Math.round(value / 1_000_000).toLocaleString()}M`;
+}
 
 type IpoEvent = {
   id: number;
@@ -143,6 +149,7 @@ export default function IposPage() {
               <tr>
                 <th>Company</th>
                 <th>Ticker</th>
+                <th>IPO $M Raised</th>
                 <th>Stage</th>
                 <th>Filed</th>
                 <th>Filing</th>
@@ -153,6 +160,7 @@ export default function IposPage() {
                 <tr key={event.id}>
                   <td>{event.company.name}</td>
                   <td>{event.company.ticker || "—"}</td>
+                  <td>{formatIpoProceeds(event.company.ipo_proceeds_usd)}</td>
                   <td>
                     <span className={`stage-tag stage-${event.stage}`}>{STAGE_LABELS[event.stage]}</span>
                   </td>
