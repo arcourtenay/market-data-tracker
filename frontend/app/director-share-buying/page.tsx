@@ -31,13 +31,16 @@ function formatUsd(value: number): string {
 }
 
 const DEFAULT_FILED_FROM_PERIOD = { months: 6 } as const;
+const DEFAULT_MIN_VALUE_MILLIONS = "100";
 
 export default function DirectorShareBuyingPage() {
   const [search, setSearch] = useState("");
+  const [minValueMillions, setMinValueMillions] = useState(DEFAULT_MIN_VALUE_MILLIONS);
   const [filedFrom, setFiledFrom] = useState(() => isoDateAgo(DEFAULT_FILED_FROM_PERIOD));
   const [filedTo, setFiledTo] = useState(() => todayIsoDate());
   const [appliedFilters, setAppliedFilters] = useState(() => ({
     search: "",
+    minValueMillions: DEFAULT_MIN_VALUE_MILLIONS,
     filedFrom: isoDateAgo(DEFAULT_FILED_FROM_PERIOD),
     filedTo: todayIsoDate(),
   }));
@@ -49,6 +52,10 @@ export default function DirectorShareBuyingPage() {
     let ignore = false;
     const params = new URLSearchParams();
     if (appliedFilters.search) params.set("search", appliedFilters.search);
+    const minValue = Number(appliedFilters.minValueMillions);
+    if (appliedFilters.minValueMillions !== "" && !Number.isNaN(minValue)) {
+      params.set("min_value_usd", String(minValue * 1_000_000));
+    }
     if (appliedFilters.filedFrom) params.set("filed_from", appliedFilters.filedFrom);
     if (appliedFilters.filedTo) params.set("filed_to", appliedFilters.filedTo);
 
@@ -77,7 +84,7 @@ export default function DirectorShareBuyingPage() {
 
   function applyFilters(e: React.FormEvent) {
     e.preventDefault();
-    setAppliedFilters({ search, filedFrom, filedTo });
+    setAppliedFilters({ search, minValueMillions, filedFrom, filedTo });
   }
 
   return (
@@ -89,6 +96,16 @@ export default function DirectorShareBuyingPage() {
       </p>
 
       <form className="filters" onSubmit={applyFilters}>
+        <label>
+          Min $M purchased
+          <input
+            type="number"
+            min="0"
+            step="any"
+            value={minValueMillions}
+            onChange={(e) => setMinValueMillions(e.target.value)}
+          />
+        </label>
         <label>
           Company / ticker / director
           <input
