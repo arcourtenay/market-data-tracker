@@ -24,3 +24,6 @@ Thumbs.db
 # Contains real database credentials - never commit
 run_backfill_spac.ps1
 run_bulk_funds.ps1
+
+# Blanket safeguard: any local one-off launcher script for production tasks
+run_*.ps1
