@@ -29,6 +29,19 @@ class SpacEventOut(BaseModel):
     company: CompanyOut
 
 
+class IpoEventOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    accession_no: str
+    form_type: str
+    filing_date: date
+    report_date: date | None
+    filing_url: str
+    created_at: datetime
+    company: CompanyOut
+
+
 class FundOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

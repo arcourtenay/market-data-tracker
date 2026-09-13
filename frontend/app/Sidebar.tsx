@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 
 const NAV_ITEMS = [
   { href: "/13f-filings", label: "13F Filings" },
+  { href: "/ipos", label: "IPOs" },
   { href: "/", label: "SPAC IPOs" },
   { href: "/director-share-buying", label: "Director Share Buying" },
 ];
