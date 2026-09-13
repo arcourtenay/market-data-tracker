@@ -50,10 +50,20 @@ def _recent_13f_hr_filings(submissions: dict, count: int) -> list[dict]:
 
 
 def _find_info_table_filename(index_json: dict) -> str | None:
-    for item in index_json.get("directory", {}).get("item", []):
-        if "infotable" in item["name"].lower():
-            return item["name"]
-    return None
+    """The information table's filename varies by filer/filing agent
+    (infotable.xml, Form13F2q2026TABLE.xml, etc.) - the only name that's
+    actually standardized across all 13F-HR filers is primary_doc.xml (the
+    cover page). So: take every .xml file that isn't primary_doc.xml: if there
+    are several (rare), the information table is the largest one - it lists
+    every holding, so it dwarfs any other exhibit."""
+    candidates = [
+        item
+        for item in index_json.get("directory", {}).get("item", [])
+        if item["name"].lower().endswith(".xml") and item["name"].lower() != "primary_doc.xml"
+    ]
+    if not candidates:
+        return None
+    return max(candidates, key=lambda item: int(item.get("size") or 0))["name"]
 
 
 def _parse_info_table(xml_text: str) -> list[dict]:
@@ -85,7 +95,8 @@ def _ingest_one_filing(db, client: SecClient, cik_nozero: str, fund_id: int, fil
     )
     info_table_name = _find_info_table_filename(index_json)
     if info_table_name is None:
-        return 0
+        print(f"  [warn] no information table found in {filing['accession_no']} - skipping this quarter")
+        return None
 
     xml_text = client.get_text(
         f"https://www.sec.gov/Archives/edgar/data/{cik_nozero}/{accession_nodash}/{info_table_name}"
@@ -138,7 +149,8 @@ def run(cik: str, name: str, quarters: int = 4) -> None:
 
         for filing in filings:
             count = _ingest_one_filing(db, client, cik_nozero, fund_id, filing)
-            print(f"  {filing['period_of_report']}: {count} holdings (filed {filing['filing_date']})")
+            if count is not None:
+                print(f"  {filing['period_of_report']}: {count} holdings (filed {filing['filing_date']})")
 
     print(f"Done. Ingested {len(filings)} quarter(s) for {name}.")
 
