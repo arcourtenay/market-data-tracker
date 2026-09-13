@@ -31,7 +31,7 @@ function formatUsd(value: number): string {
 }
 
 const DEFAULT_FILED_FROM_PERIOD = { months: 6 } as const;
-const DEFAULT_MIN_VALUE_MILLIONS = "1";
+const DEFAULT_MIN_VALUE_MILLIONS = "0.1";
 
 export default function DirectorShareBuyingPage() {
   const [search, setSearch] = useState("");
