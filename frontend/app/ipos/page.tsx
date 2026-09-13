@@ -17,20 +17,28 @@ type IpoEvent = {
   id: number;
   accession_no: string;
   form_type: string;
+  stage: "s1_filed" | "priced";
   filing_date: string;
   report_date: string | null;
   filing_url: string;
   company: Company;
 };
 
+const STAGE_LABELS: Record<IpoEvent["stage"], string> = {
+  s1_filed: "S-1 filed",
+  priced: "Priced",
+};
+
 const DEFAULT_FILED_FROM_PERIOD = { months: 6 } as const;
 
 export default function IposPage() {
   const [search, setSearch] = useState("");
+  const [stage, setStage] = useState<"" | IpoEvent["stage"]>("");
   const [filedFrom, setFiledFrom] = useState(() => isoDateAgo(DEFAULT_FILED_FROM_PERIOD));
   const [filedTo, setFiledTo] = useState(() => todayIsoDate());
   const [appliedFilters, setAppliedFilters] = useState(() => ({
     search: "",
+    stage: "" as "" | IpoEvent["stage"],
     filedFrom: isoDateAgo(DEFAULT_FILED_FROM_PERIOD),
     filedTo: todayIsoDate(),
   }));
@@ -41,6 +49,7 @@ export default function IposPage() {
   useEffect(() => {
     const params = new URLSearchParams();
     if (appliedFilters.search) params.set("search", appliedFilters.search);
+    if (appliedFilters.stage) params.set("stage", appliedFilters.stage);
     if (appliedFilters.filedFrom) params.set("filed_from", appliedFilters.filedFrom);
     if (appliedFilters.filedTo) params.set("filed_to", appliedFilters.filedTo);
 
@@ -59,15 +68,16 @@ export default function IposPage() {
 
   function applyFilters(e: React.FormEvent) {
     e.preventDefault();
-    setAppliedFilters({ search, filedFrom, filedTo });
+    setAppliedFilters({ search, stage, filedFrom, filedTo });
   }
 
   return (
     <main>
       <h1>IPOs</h1>
       <p className="subtitle">
-        Non-SPAC IPOs across all SEC filers: Form 424B4 (final IPO prospectus) from companies that
-        aren&apos;t SIC 6770 (SPACs) and whose filing history includes a Form S-1 registration.
+        Non-SPAC IPOs across all SEC filers: companies that have filed a Form S-1 registration
+        statement (&quot;S-1 filed&quot;, pre-IPO) or priced via Form 424B4 (&quot;Priced&quot;) - excluding
+        SIC 6770 (SPACs).
       </p>
 
       <form className="filters" onSubmit={applyFilters}>
@@ -79,6 +89,14 @@ export default function IposPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
+        </label>
+        <label>
+          Stage
+          <select value={stage} onChange={(e) => setStage(e.target.value as "" | IpoEvent["stage"])}>
+            <option value="">All</option>
+            <option value="s1_filed">S-1 filed</option>
+            <option value="priced">Priced</option>
+          </select>
         </label>
         <label>
           Filed from
@@ -125,6 +143,7 @@ export default function IposPage() {
               <tr>
                 <th>Company</th>
                 <th>Ticker</th>
+                <th>Stage</th>
                 <th>Filed</th>
                 <th>Filing</th>
               </tr>
@@ -134,6 +153,9 @@ export default function IposPage() {
                 <tr key={event.id}>
                   <td>{event.company.name}</td>
                   <td>{event.company.ticker || "—"}</td>
+                  <td>
+                    <span className={`stage-tag stage-${event.stage}`}>{STAGE_LABELS[event.stage]}</span>
+                  </td>
                   <td>{event.filing_date}</td>
                   <td>
                     <a href={event.filing_url} target="_blank" rel="noreferrer">

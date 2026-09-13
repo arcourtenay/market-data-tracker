@@ -35,6 +35,7 @@ class IpoEventOut(BaseModel):
     id: int
     accession_no: str
     form_type: str
+    stage: str
     filing_date: date
     report_date: date | None
     filing_url: str

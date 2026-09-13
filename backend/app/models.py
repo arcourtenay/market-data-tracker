@@ -58,13 +58,20 @@ class SpacEvent(Base):
 
 
 class IpoEvent(Base):
-    """A non-SPAC company's IPO: signaled by a Form 424B4 (final IPO
-    prospectus) from a company whose SIC code isn't 6770 ('Blank Checks',
-    i.e. not a SPAC - those are tracked as SpacEvents instead) and whose
-    filing history includes a Form S-1 registration statement, the standard
-    IPO registration only used by companies not yet subject to SEC reporting
-    requirements (already-public companies file the shorter Form S-3 for
-    follow-on offerings instead, so this excludes those)."""
+    """A non-SPAC company's IPO lifecycle event, for a company whose SIC code
+    isn't 6770 ('Blank Checks', i.e. not a SPAC - those are tracked as
+    SpacEvents instead):
+
+      - stage='s1_filed': the company's EARLIEST visible Form S-1 (the
+        standard IPO registration statement, filed before a company is
+        subject to SEC reporting requirements) - i.e. it has registered to
+        go public but not yet priced.
+      - stage='priced': the company's EARLIEST visible Form 424B4 (final IPO
+        prospectus), gated on the company's history also containing a Form
+        S-1 - i.e. the IPO has priced and started trading.
+
+    Both use "earliest visible" rather than "any" to exclude routine
+    follow-on/shelf S-1 or 424B4 refilings by already-public small-caps."""
 
     __tablename__ = "ipo_events"
     __table_args__ = (UniqueConstraint("accession_no", name="uq_ipo_event_accession_no"),)
@@ -73,6 +80,7 @@ class IpoEvent(Base):
     company_id: Mapped[int] = mapped_column(ForeignKey("companies.id"), index=True)
     accession_no: Mapped[str] = mapped_column(String(25), index=True)
     form_type: Mapped[str] = mapped_column(String(20))
+    stage: Mapped[str] = mapped_column(String(20), index=True)
     filing_date: Mapped[date] = mapped_column(Date, index=True)
     report_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     primary_document: Mapped[str | None] = mapped_column(String(255), nullable=True)

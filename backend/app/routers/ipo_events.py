@@ -13,6 +13,7 @@ router = APIRouter(prefix="/api/ipo-events", tags=["ipo-events"])
 @router.get("", response_model=list[IpoEventOut])
 def list_ipo_events(
     search: str | None = Query(None, description="Match against company name or ticker"),
+    stage: str | None = Query(None, description="'s1_filed' or 'priced'"),
     filed_from: date | None = Query(None, description="Only filings on/after this date"),
     filed_to: date | None = Query(None, description="Only filings on/before this date"),
     limit: int | None = Query(None, description="Omit to return every matching event"),
@@ -24,6 +25,8 @@ def list_ipo_events(
     if search:
         like = f"%{search}%"
         query = query.filter((Company.name.ilike(like)) | (Company.ticker.ilike(like)))
+    if stage:
+        query = query.filter(IpoEvent.stage == stage)
     if filed_from:
         query = query.filter(IpoEvent.filing_date >= filed_from)
     if filed_to:
