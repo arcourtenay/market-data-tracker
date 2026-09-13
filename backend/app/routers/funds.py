@@ -57,6 +57,36 @@ def get_fund_holdings(
 
     total_value_usd = sum(h.value_usd for h in holdings)
 
+    # Quarter-over-quarter share count change: find the quarter immediately
+    # before this one (for this fund) and compare shares per CUSIP.
+    all_periods = [
+        row[0]
+        for row in db.query(FundHolding.period_of_report)
+        .filter(FundHolding.fund_id == fund_id)
+        .distinct()
+        .order_by(FundHolding.period_of_report.desc())
+        .all()
+    ]
+    prior_shares_by_cusip: dict[str, float] = {}
+    try:
+        idx = all_periods.index(target_period)
+        prior_period = all_periods[idx + 1] if idx + 1 < len(all_periods) else None
+    except ValueError:
+        prior_period = None
+    if prior_period is not None:
+        prior_rows = (
+            db.query(FundHolding.cusip, FundHolding.shares)
+            .filter(FundHolding.fund_id == fund_id, FundHolding.period_of_report == prior_period)
+            .all()
+        )
+        prior_shares_by_cusip = {cusip: shares for cusip, shares in prior_rows}
+
+    def share_change_pct(h: FundHolding) -> float | None:
+        prior_shares = prior_shares_by_cusip.get(h.cusip)
+        if not prior_shares:
+            return None
+        return (h.shares - prior_shares) / prior_shares * 100
+
     return {
         "fund": fund,
         "period_of_report": holdings[0].period_of_report,
@@ -70,6 +100,7 @@ def get_fund_holdings(
                 "shares": h.shares,
                 "share_class": h.share_class,
                 "weight_pct": (h.value_usd / total_value_usd * 100) if total_value_usd else 0.0,
+                "share_change_pct": share_change_pct(h),
             }
             for h in holdings
         ],

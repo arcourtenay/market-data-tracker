@@ -16,6 +16,7 @@ type FundHolding = {
   shares: number;
   share_class: string | null;
   weight_pct: number;
+  share_change_pct: number | null;
 };
 
 type FundHoldingsResponse = {
@@ -34,6 +35,20 @@ function formatQuarterLabel(periodOfReport: string): string {
   const [year, month] = periodOfReport.split("-").map(Number);
   const quarter = Math.ceil(month / 3);
   return `Q${quarter} ${year}`;
+}
+
+function toTitleCase(name: string): string {
+  return name
+    .toLowerCase()
+    .split(" ")
+    .map((word) => (word.length > 0 ? word[0].toUpperCase() + word.slice(1) : word))
+    .join(" ");
+}
+
+function formatShareChange(pct: number | null): string {
+  if (pct === null) return "New";
+  const sign = pct > 0 ? "+" : "";
+  return `${sign}${pct.toFixed(1)}%`;
 }
 
 export default function ThirteenFFilingsPage() {
@@ -144,20 +159,18 @@ export default function ThirteenFFilingsPage() {
               <thead>
                 <tr>
                   <th>Issuer</th>
-                  <th>CUSIP</th>
                   <th>Value ($M)</th>
-                  <th>Shares</th>
                   <th>% of portfolio</th>
+                  <th>Shares vs prior quarter</th>
                 </tr>
               </thead>
               <tbody>
                 {data.holdings.map((holding, idx) => (
                   <tr key={`${holding.cusip}-${idx}`}>
-                    <td>{holding.issuer_name}</td>
-                    <td>{holding.cusip}</td>
+                    <td>{toTitleCase(holding.issuer_name)}</td>
                     <td>{formatUsdMillions(holding.value_usd)}</td>
-                    <td>{holding.shares.toLocaleString()}</td>
                     <td>{holding.weight_pct.toFixed(2)}%</td>
+                    <td>{formatShareChange(holding.share_change_pct)}</td>
                   </tr>
                 ))}
               </tbody>

@@ -60,6 +60,7 @@ class FundHoldingOut(BaseModel):
     shares: float
     share_class: str | None
     weight_pct: float
+    share_change_pct: float | None
 
 
 class FundHoldingsOut(BaseModel):
