@@ -10,9 +10,6 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./sec_tracker.db"
     cors_origins: str = "http://localhost:3000"
 
-    anthropic_api_key: str | None = None
-    anthropic_model: str = "claude-haiku-4-5-20251001"
-
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]

@@ -29,29 +29,7 @@ class Company(Base):
     market_cap_usd: Mapped[float | None] = mapped_column(Float, nullable=True)
     market_cap_updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
-    events: Mapped[list["ManagementChangeEvent"]] = relationship(back_populates="company")
     spac_events: Mapped[list["SpacEvent"]] = relationship(back_populates="company")
-
-
-class ManagementChangeEvent(Base):
-    __tablename__ = "management_change_events"
-    __table_args__ = (UniqueConstraint("accession_no", name="uq_event_accession_no"),)
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    company_id: Mapped[int] = mapped_column(ForeignKey("companies.id"), index=True)
-    accession_no: Mapped[str] = mapped_column(String(25), index=True)
-    form_type: Mapped[str] = mapped_column(String(20))
-    items: Mapped[str] = mapped_column(String(100))
-    filing_date: Mapped[date] = mapped_column(Date, index=True)
-    report_date: Mapped[date | None] = mapped_column(Date, nullable=True)
-    primary_document: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    filing_url: Mapped[str] = mapped_column(String(500))
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-
-    # NULL = not yet processed by app.extract_people; "" = processed, no names found.
-    people: Mapped[str | None] = mapped_column(String(500), nullable=True)
-
-    company: Mapped["Company"] = relationship(back_populates="events")
 
 
 class SpacEvent(Base):

@@ -14,22 +14,6 @@ class CompanyOut(BaseModel):
     sic_description: str | None
 
 
-class ManagementChangeEventOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int
-    accession_no: str
-    form_type: str
-    items: str
-    filing_date: date
-    report_date: date | None
-    primary_document: str | None
-    filing_url: str
-    created_at: datetime
-    people: str | None
-    company: CompanyOut
-
-
 class SpacEventOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

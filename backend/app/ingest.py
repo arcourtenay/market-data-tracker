@@ -1,8 +1,5 @@
-"""Ingests events from SEC EDGAR for every SEC-listed company, across all
-signals we track:
+"""Ingests SPAC lifecycle events from SEC EDGAR for every SEC-listed company:
 
-  - Management changes: Form 8-K, Item 5.02 (departure/election of directors
-    or officers).
   - SPAC IPOs: Form 424B4 (final IPO prospectus) filed by a company with SIC
     6770 ("Blank Checks" - the SEC's own classification for SPACs).
   - De-SPAC merger completions: Form 8-K, Item 5.06 ("Change in Shell Company
@@ -34,10 +31,9 @@ from datetime import date, datetime, timedelta
 from sqlalchemy.orm import Session
 
 from .database import SessionLocal, ensure_schema
-from .models import Company, ManagementChangeEvent, SpacEvent
+from .models import Company, SpacEvent
 from .sec_client import SecClient, build_filing_url
 
-MANAGEMENT_CHANGE_ITEM = "5.02"
 DESPAC_ITEM = "5.06"
 SPAC_IPO_FORM = "424B4"
 SPAC_IPO_SIC = "6770"
@@ -64,7 +60,7 @@ def _upsert_company(db: Session, cik10: str, name: str, ticker: str | None, sic:
     return company
 
 
-def _ingest_company_filings(db: Session, client: SecClient, cik10: str, ticker: str | None = None) -> tuple[int, int]:
+def _ingest_company_filings(db: Session, client: SecClient, cik10: str, ticker: str | None = None) -> int:
     submissions = client.get_submissions(cik10)
     name = submissions.get("name") or ticker or cik10
     sic = submissions.get("sic")
@@ -81,7 +77,6 @@ def _ingest_company_filings(db: Session, client: SecClient, cik10: str, ticker: 
     report_dates = recent.get("reportDate", [])
     primary_documents = recent.get("primaryDocument", [])
 
-    new_events = 0
     new_spac_events = 0
 
     for idx, form in enumerate(forms):
@@ -92,27 +87,6 @@ def _ingest_company_filings(db: Session, client: SecClient, cik10: str, ticker: 
         filing_date = _parse_date(filing_dates[idx])
         report_date = _parse_date(report_dates[idx] if idx < len(report_dates) else None)
         filing_url = build_filing_url(cik10, accession_no, primary_document)
-
-        if form.startswith("8-K") and MANAGEMENT_CHANGE_ITEM in item_list:
-            exists = (
-                db.query(ManagementChangeEvent)
-                .filter(ManagementChangeEvent.accession_no == accession_no)
-                .one_or_none()
-            )
-            if not exists:
-                db.add(
-                    ManagementChangeEvent(
-                        company_id=company.id,
-                        accession_no=accession_no,
-                        form_type=form,
-                        items=items,
-                        filing_date=filing_date,
-                        report_date=report_date,
-                        primary_document=primary_document,
-                        filing_url=filing_url,
-                    )
-                )
-                new_events += 1
 
         stage = None
         if form.startswith("8-K") and DESPAC_ITEM in item_list:
@@ -138,20 +112,18 @@ def _ingest_company_filings(db: Session, client: SecClient, cik10: str, ticker: 
                 )
                 new_spac_events += 1
 
-    return new_events, new_spac_events
+    return new_spac_events
 
 
 def _process_companies(client: SecClient, ciks: list[tuple[str, str | None]]) -> None:
     """ciks: list of (cik10, ticker-or-None) to check. Shared by both entry points."""
     total = len(ciks)
-    total_new_events = 0
     total_new_spac_events = 0
 
     with SessionLocal() as db:
         for idx, (cik10, ticker) in enumerate(ciks, start=1):
             try:
-                new_events, new_spac_events = _ingest_company_filings(db, client, cik10, ticker)
-                total_new_events += new_events
+                new_spac_events = _ingest_company_filings(db, client, cik10, ticker)
                 total_new_spac_events += new_spac_events
                 db.commit()
             except Exception as exc:  # noqa: BLE001 - keep ingesting other companies
@@ -159,16 +131,9 @@ def _process_companies(client: SecClient, ciks: list[tuple[str, str | None]]) ->
                 print(f"  [warn] {ticker or cik10}: {exc}", file=sys.stderr)
 
             if idx % 50 == 0 or idx == total:
-                print(
-                    f"  processed {idx}/{total} companies, "
-                    f"{total_new_events} new management-change events, "
-                    f"{total_new_spac_events} new SPAC events so far"
-                )
+                print(f"  processed {idx}/{total} companies, {total_new_spac_events} new SPAC events so far")
 
-    print(
-        f"Done. {total_new_events} new management-change events, "
-        f"{total_new_spac_events} new SPAC events ingested."
-    )
+    print(f"Done. {total_new_spac_events} new SPAC events ingested.")
 
 
 def run_daily_index(days_back: int = 3) -> None:
