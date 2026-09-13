@@ -66,6 +66,7 @@ class FundHoldingOut(BaseModel):
 class FundHoldingsOut(BaseModel):
     fund: FundOut
     period_of_report: date
+    prior_period_of_report: date | None
     filing_date: date
     total_value_usd: float
     holdings: list[FundHoldingOut]

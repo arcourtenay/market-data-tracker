@@ -22,6 +22,7 @@ type FundHolding = {
 type FundHoldingsResponse = {
   fund: Fund;
   period_of_report: string;
+  prior_period_of_report: string | null;
   filing_date: string;
   total_value_usd: number;
   holdings: FundHolding[];
@@ -161,7 +162,11 @@ export default function ThirteenFFilingsPage() {
                   <th>Issuer</th>
                   <th>Value ($M)</th>
                   <th>% of portfolio</th>
-                  <th>Shares vs prior quarter</th>
+                  <th>
+                    {data.prior_period_of_report
+                      ? `Versus ${formatQuarterLabel(data.prior_period_of_report)}`
+                      : "Vs prior quarter"}
+                  </th>
                 </tr>
               </thead>
               <tbody>

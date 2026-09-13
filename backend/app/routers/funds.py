@@ -90,6 +90,7 @@ def get_fund_holdings(
     return {
         "fund": fund,
         "period_of_report": holdings[0].period_of_report,
+        "prior_period_of_report": prior_period,
         "filing_date": holdings[0].filing_date,
         "total_value_usd": total_value_usd,
         "holdings": [
