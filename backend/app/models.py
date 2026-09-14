@@ -39,6 +39,7 @@ class Company(Base):
     spac_events: Mapped[list["SpacEvent"]] = relationship(back_populates="company")
     ipo_events: Mapped[list["IpoEvent"]] = relationship(back_populates="company")
     director_buy_events: Mapped[list["DirectorBuyEvent"]] = relationship(back_populates="company")
+    financial_result_events: Mapped[list["FinancialResultEvent"]] = relationship(back_populates="company")
 
 
 class SpacEvent(Base):
@@ -129,6 +130,27 @@ class DirectorBuyEvent(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     company: Mapped["Company"] = relationship(back_populates="director_buy_events")
+
+
+class FinancialResultEvent(Base):
+    """A periodic financial report (Form 10-K or 10-Q, including amendments)
+    filed by any SEC reporting company - a pure rolling feed straight off
+    SEC's daily index, not a per-company history scan, since every 10-K/10-Q
+    is inherently relevant (there's no "first ever" signal to detect here
+    the way there is for SPAC/IPO events)."""
+
+    __tablename__ = "financial_result_events"
+    __table_args__ = (UniqueConstraint("accession_no", name="uq_financial_result_accession_no"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    company_id: Mapped[int] = mapped_column(ForeignKey("companies.id"), index=True)
+    accession_no: Mapped[str] = mapped_column(String(25), index=True)
+    form_type: Mapped[str] = mapped_column(String(20))
+    filing_date: Mapped[date] = mapped_column(Date, index=True)
+    filing_url: Mapped[str] = mapped_column(String(500))
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    company: Mapped["Company"] = relationship(back_populates="financial_result_events")
 
 
 class Fund(Base):

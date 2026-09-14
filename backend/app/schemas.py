@@ -13,6 +13,7 @@ class CompanyOut(BaseModel):
     sic: str | None
     sic_description: str | None
     ipo_proceeds_usd: float | None
+    market_cap_usd: float | None
 
 
 class SpacEventOut(BaseModel):
@@ -55,6 +56,18 @@ class DirectorBuyEventOut(BaseModel):
     shares: float
     price_per_share: float
     value_usd: float
+    filing_url: str
+    created_at: datetime
+    company: CompanyOut
+
+
+class FinancialResultEventOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    accession_no: str
+    form_type: str
+    filing_date: date
     filing_url: str
     created_at: datetime
     company: CompanyOut
