@@ -34,13 +34,6 @@ body {
   padding: 20px 12px;
 }
 
-.sidebar-title {
-  font-weight: 600;
-  font-size: 14px;
-  padding: 0 12px;
-  margin-bottom: 16px;
-}
-
 .sidebar-nav {
   list-style: none;
   margin: 0;
@@ -157,6 +150,18 @@ h1 {
 
 .filters button.shortcut-btn:hover {
   background: var(--bg);
+}
+
+/* Highlights the shortcut matching the currently selected "from" date
+   (e.g. "6m" when the default six-month range is active). */
+.filters button.shortcut-btn.active {
+  background: #d7d8dc;
+  border-color: #c3c4ca;
+  font-weight: 600;
+}
+
+.filters button.shortcut-btn.active:hover {
+  background: #cbccd1;
 }
 
 .table-scroll {

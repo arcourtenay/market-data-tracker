@@ -3,7 +3,7 @@ import Sidebar from "./Sidebar";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "SEC Tracker",
+  title: "",
   description: "Tracks disclosures across SEC filers: management changes, SPAC IPOs, and 13F filings",
 };
 

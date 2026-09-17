@@ -123,7 +123,7 @@ export default function DirectorShareBuyingPage() {
               <button
                 key={shortcut.label}
                 type="button"
-                className="shortcut-btn"
+                className={filedFrom === isoDateAgo(shortcut.period) ? "shortcut-btn active" : "shortcut-btn"}
                 onClick={() => setFiledFrom(isoDateAgo(shortcut.period))}
               >
                 {shortcut.label}

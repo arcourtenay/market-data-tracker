@@ -16,7 +16,7 @@ type Bidco = {
 };
 
 const DEFAULT_NAME_INCLUDES = "BIDCO";
-const DEFAULT_INCORPORATED_FROM_PERIOD = { months: 3 } as const;
+const DEFAULT_INCORPORATED_FROM_PERIOD = { months: 6 } as const;
 
 function formatLocation(co: Bidco): string {
   const parts = [co.locality, co.postal_code, co.country].filter(Boolean);
@@ -106,7 +106,7 @@ export default function CompaniesHouseBidcosPage() {
               <button
                 key={shortcut.label}
                 type="button"
-                className="shortcut-btn"
+                className={incorporatedFrom === isoDateAgo(shortcut.period) ? "shortcut-btn active" : "shortcut-btn"}
                 onClick={() => setIncorporatedFrom(isoDateAgo(shortcut.period))}
               >
                 {shortcut.label}

@@ -18,7 +18,6 @@ export default function Sidebar() {
 
   return (
     <nav className="sidebar">
-      <div className="sidebar-title">SEC Tracker</div>
       <ul className="sidebar-nav">
         {NAV_ITEMS.map((item) => (
           <li key={item.href}>
