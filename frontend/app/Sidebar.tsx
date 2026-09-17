@@ -9,6 +9,8 @@ const NAV_ITEMS = [
   { href: "/", label: "SPAC IPOs" },
   { href: "/director-share-buying", label: "Director Share Buying" },
   { href: "/financial-results", label: "Financial Results" },
+  { href: "/companies-house-bidcos", label: "Companies House bidcos" },
+  { href: "/takeover-panel-changes", label: "Takeover Panel changes" },
 ];
 
 export default function Sidebar() {
