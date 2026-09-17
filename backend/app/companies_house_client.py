@@ -40,12 +40,14 @@ def search_companies(
     name_includes: str,
     incorporated_from: date | None = None,
     incorporated_to: date | None = None,
-    max_results: int = 200,
+    max_results: int = 2000,
 ) -> list[dict]:
     """Advanced-search for companies whose name includes ``name_includes``.
 
-    Paginates until we run out of results or hit ``max_results``. Returns the raw
-    Companies House ``items`` dicts.
+    Paginates through the *entire* result set for the window (up to ``max_results``
+    as a safety cap) and returns the raw Companies House ``items`` dicts. Callers
+    must sort/trim themselves: Companies House does not return results newest-first,
+    so trimming before fetching every page would silently drop recent companies.
     """
     auth = _auth()
     results: list[dict] = []

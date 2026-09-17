@@ -23,7 +23,7 @@ def list_bidcos(
     incorporated_to: date | None = Query(
         None, description="Only companies incorporated on/before this date"
     ),
-    max_results: int = Query(200, ge=1, le=500),
+    limit: int = Query(500, ge=1, le=1000, description="Max companies to return (newest first)"),
 ):
     """Live search of Companies House for companies whose name includes a keyword
     (default "bidco"), newest incorporations first, each with a link to its
@@ -33,17 +33,30 @@ def list_bidcos(
         raise HTTPException(status_code=422, detail="name_includes cannot be empty")
 
     try:
+        # Fetch every company in the window first: Companies House does not return
+        # results newest-first, so trimming before sorting would drop the most
+        # recent incorporations.
         companies = search_companies(
             keyword,
             incorporated_from=incorporated_from,
             incorporated_to=incorporated_to,
-            max_results=max_results,
         )
     except CompaniesHouseError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
-    # Newest incorporations first.
+    # Companies House can return the same company more than once; dedupe by number.
+    seen: set[str] = set()
+    unique = []
+    for co in companies:
+        number = co.get("company_number")
+        if number and number not in seen:
+            seen.add(number)
+            unique.append(co)
+    companies = unique
+
+    # Newest incorporations first, then trim to the display limit.
     companies.sort(key=lambda c: c.get("date_of_creation") or "", reverse=True)
+    companies = companies[:limit]
 
     doc_urls = incorporation_document_urls([c["company_number"] for c in companies])
 
