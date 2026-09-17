@@ -73,6 +73,17 @@ class FinancialResultEventOut(BaseModel):
     company: CompanyOut
 
 
+class BidcoCompanyOut(BaseModel):
+    company_name: str
+    company_number: str
+    date_of_creation: date | None
+    company_status: str | None
+    locality: str | None
+    postal_code: str | None
+    country: str | None
+    incorporation_url: str
+
+
 class FundOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

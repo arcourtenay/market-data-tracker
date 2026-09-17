@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     sec_user_agent: str = "Green Ash Partners adrian@greenash-partners.com"
     database_url: str = "sqlite:///./sec_tracker.db"
     cors_origins: str = "http://localhost:3000"
+    companies_house_api_key: str = ""
 
     @property
     def cors_origin_list(self) -> list[str]:
