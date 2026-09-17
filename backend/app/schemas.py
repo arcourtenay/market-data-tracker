@@ -84,6 +84,24 @@ class BidcoCompanyOut(BaseModel):
     incorporation_url: str
 
 
+class TakeoverEntryOut(BaseModel):
+    offeree: str
+    offeree_lei: str | None
+    offer_period_commenced: str | None
+    offerors: list[str]
+    detail_lines: list[str]
+
+
+class TakeoverChangesOut(BaseModel):
+    since_date: date | None
+    as_of: datetime
+    additions: list[TakeoverEntryOut]
+    deletions: list[TakeoverEntryOut]
+    current_count: int
+    baseline_count: int | None
+    note: str | None
+
+
 class FundOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

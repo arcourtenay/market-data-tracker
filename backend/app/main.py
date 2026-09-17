@@ -11,6 +11,7 @@ from .routers import (
     funds,
     ipo_events,
     spac_events,
+    takeover_panel,
 )
 
 settings = get_settings()
@@ -33,6 +34,7 @@ app.include_router(ipo_events.router)
 app.include_router(director_buys.router)
 app.include_router(financial_results.router)
 app.include_router(companies_house.router)
+app.include_router(takeover_panel.router)
 app.include_router(funds.router)
 
 

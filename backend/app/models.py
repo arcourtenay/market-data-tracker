@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, Float, ForeignKey, Integer, String, UniqueConstraint, func
+from sqlalchemy import Date, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
@@ -187,3 +187,19 @@ class FundHolding(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     fund: Mapped["Fund"] = relationship(back_populates="holdings")
+
+
+class TakeoverSnapshot(Base):
+    """A stored copy of the UK Takeover Panel disclosure-table CSV, one row per
+    calendar date it was fetched (the latest fetch on that date wins). The
+    Takeover Panel changes tab diffs the live CSV against the most recent
+    snapshot from a *previous* day to show additions/deletions "since X date"."""
+
+    __tablename__ = "takeover_snapshots"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    snapshot_date: Mapped[date] = mapped_column(Date, unique=True, index=True)
+    csv_text: Mapped[str] = mapped_column(Text)
+    captured_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
