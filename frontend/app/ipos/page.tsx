@@ -124,7 +124,11 @@ export default function IposPage() {
           Filed to
           <div className="filed-to-row">
             <input type="date" value={filedTo} onChange={(e) => setFiledTo(e.target.value)} />
-            <button type="button" className="shortcut-btn" onClick={() => setFiledTo(todayIsoDate())}>
+            <button
+              type="button"
+              className={filedTo === todayIsoDate() ? "shortcut-btn active" : "shortcut-btn"}
+              onClick={() => setFiledTo(todayIsoDate())}
+            >
               Today
             </button>
           </div>

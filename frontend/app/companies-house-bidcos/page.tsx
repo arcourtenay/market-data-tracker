@@ -122,7 +122,11 @@ export default function CompaniesHouseBidcosPage() {
               value={incorporatedTo}
               onChange={(e) => setIncorporatedTo(e.target.value)}
             />
-            <button type="button" className="shortcut-btn" onClick={() => setIncorporatedTo(todayIsoDate())}>
+            <button
+              type="button"
+              className={incorporatedTo === todayIsoDate() ? "shortcut-btn active" : "shortcut-btn"}
+              onClick={() => setIncorporatedTo(todayIsoDate())}
+            >
               Today
             </button>
           </div>
