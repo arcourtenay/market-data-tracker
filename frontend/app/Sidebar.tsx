@@ -9,6 +9,8 @@ const NAV_ITEMS = [
   { href: "/spac-ipos", label: "SPAC IPOs" },
   { href: "/director-share-buying", label: "Director Share Buying" },
   { href: "/director-share-selling", label: "Director Share Selling" },
+  { href: "/activist-share-buying", label: "Activist Share Buying" },
+  { href: "/activist-share-selling", label: "Activist Share Selling" },
   { href: "/financial-results", label: "Financial Results" },
   { href: "/companies-house-bidcos", label: "Companies House bidcos" },
   { href: "/takeover-panel-changes", label: "Takeover Panel changes" },

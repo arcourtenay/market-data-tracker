@@ -41,6 +41,9 @@ class Company(Base):
     director_buy_events: Mapped[list["DirectorBuyEvent"]] = relationship(back_populates="company")
     director_sell_events: Mapped[list["DirectorSellEvent"]] = relationship(back_populates="company")
     financial_result_events: Mapped[list["FinancialResultEvent"]] = relationship(back_populates="company")
+    activist_positions: Mapped[list["ActivistPosition"]] = relationship(back_populates="company")
+    activist_buy_events: Mapped[list["ActivistBuyEvent"]] = relationship(back_populates="company")
+    activist_sell_events: Mapped[list["ActivistSellEvent"]] = relationship(back_populates="company")
 
 
 class SpacEvent(Base):
@@ -186,6 +189,89 @@ class FinancialResultEvent(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     company: Mapped["Company"] = relationship(back_populates="financial_result_events")
+
+
+class ActivistPosition(Base):
+    """A snapshot of one activist's beneficial ownership in one company, taken
+    from a Schedule 13D/13D-A filing's structured cover page. Unlike Form 4,
+    13D reports an activist's TOTAL current holdings and % of class at filing
+    time, not a discrete transaction - so buying/selling is detected by
+    diffing consecutive snapshots for the same (company, reporting person)
+    pair, kept here purely to make that diff possible on the next filing.
+
+    A 13D filing can list several affiliated reporting persons as one group
+    (e.g. a fund, its GP, and an individual) all with identical holdings -
+    only the first-listed person is kept, to avoid a near-duplicate row per
+    affiliate for what is really one activist campaign."""
+
+    __tablename__ = "activist_positions"
+    __table_args__ = (UniqueConstraint("accession_no", name="uq_activist_position_accession"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    company_id: Mapped[int] = mapped_column(ForeignKey("companies.id"), index=True)
+    accession_no: Mapped[str] = mapped_column(String(25), index=True)
+    form_type: Mapped[str] = mapped_column(String(20))
+    reporting_person_key: Mapped[str] = mapped_column(String(255), index=True)
+    reporting_person_name: Mapped[str] = mapped_column(String(255))
+    shares_owned: Mapped[float] = mapped_column(Float)
+    percent_of_class: Mapped[float | None] = mapped_column(Float, nullable=True)
+    event_date: Mapped[date] = mapped_column(Date, index=True)
+    filing_date: Mapped[date] = mapped_column(Date, index=True)
+    filing_url: Mapped[str] = mapped_column(String(500))
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    company: Mapped["Company"] = relationship(back_populates="activist_positions")
+
+
+class ActivistBuyEvent(Base):
+    """An increase in an activist's beneficial ownership, detected from a
+    Schedule 13D (a brand-new >5% position) or a Schedule 13D/A showing more
+    shares than that activist's last known position (see ActivistPosition).
+    price_per_share/value_usd are a best-effort estimate (a share-price
+    lookup near the filing's event date, since 13D reports a share count, not
+    a transaction price like Form 4 does) - null when the lookup fails."""
+
+    __tablename__ = "activist_buy_events"
+    __table_args__ = (UniqueConstraint("accession_no", name="uq_activist_buy_accession"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    company_id: Mapped[int] = mapped_column(ForeignKey("companies.id"), index=True)
+    accession_no: Mapped[str] = mapped_column(String(25), index=True)
+    reporting_person_name: Mapped[str] = mapped_column(String(255))
+    is_new_position: Mapped[bool] = mapped_column(default=False)
+    shares: Mapped[float] = mapped_column(Float)
+    price_per_share: Mapped[float | None] = mapped_column(Float, nullable=True)
+    value_usd: Mapped[float | None] = mapped_column(Float, nullable=True)
+    event_date: Mapped[date] = mapped_column(Date, index=True)
+    filing_date: Mapped[date] = mapped_column(Date, index=True)
+    filing_url: Mapped[str] = mapped_column(String(500))
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    company: Mapped["Company"] = relationship(back_populates="activist_buy_events")
+
+
+class ActivistSellEvent(Base):
+    """A decrease in an activist's beneficial ownership, detected from a
+    Schedule 13D/A showing fewer shares than that activist's last known
+    position (see ActivistPosition). price_per_share/value_usd are a
+    best-effort estimate, as in ActivistBuyEvent."""
+
+    __tablename__ = "activist_sell_events"
+    __table_args__ = (UniqueConstraint("accession_no", name="uq_activist_sell_accession"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    company_id: Mapped[int] = mapped_column(ForeignKey("companies.id"), index=True)
+    accession_no: Mapped[str] = mapped_column(String(25), index=True)
+    reporting_person_name: Mapped[str] = mapped_column(String(255))
+    shares: Mapped[float] = mapped_column(Float)
+    price_per_share: Mapped[float | None] = mapped_column(Float, nullable=True)
+    value_usd: Mapped[float | None] = mapped_column(Float, nullable=True)
+    event_date: Mapped[date] = mapped_column(Date, index=True)
+    filing_date: Mapped[date] = mapped_column(Date, index=True)
+    filing_url: Mapped[str] = mapped_column(String(500))
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    company: Mapped["Company"] = relationship(back_populates="activist_sell_events")
 
 
 class Fund(Base):

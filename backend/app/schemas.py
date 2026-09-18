@@ -77,6 +77,37 @@ class DirectorSellEventOut(BaseModel):
     company: CompanyOut
 
 
+class ActivistBuyEventOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    reporting_person_name: str
+    is_new_position: bool
+    shares: float
+    price_per_share: float | None
+    value_usd: float | None
+    event_date: date
+    filing_date: date
+    filing_url: str
+    created_at: datetime
+    company: CompanyOut
+
+
+class ActivistSellEventOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    reporting_person_name: str
+    shares: float
+    price_per_share: float | None
+    value_usd: float | None
+    event_date: date
+    filing_date: date
+    filing_url: str
+    created_at: datetime
+    company: CompanyOut
+
+
 class FinancialResultEventOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
