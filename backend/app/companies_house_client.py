@@ -21,6 +21,15 @@ _TIMEOUT = 20  # seconds
 _PAGE_SIZE = 100  # Companies House advanced-search max page size
 _DOC_WORKERS = 10  # concurrent filing-history lookups for incorporation docs
 
+# A company's incorporation filing never changes once filed, so successful
+# lookups are cached for the life of the process - this is the single biggest
+# source of repeated, purely-redundant Companies House requests (one per
+# company, per page load), and was routinely exhausting the 600-per-5-minutes
+# rate limit on its own. Only successful lookups are cached; a transient
+# failure falls through to the filing-history-page fallback WITHOUT being
+# cached, so it's retried live next time rather than getting stuck.
+_incorporation_doc_cache: dict[str, str] = {}
+
 
 class CompaniesHouseError(RuntimeError):
     """Raised when Companies House cannot be reached or is misconfigured."""
@@ -99,6 +108,10 @@ def incorporation_document_url(company_number: str) -> str:
     Looks up the incorporation filing to build a direct document link; falls back
     to the company's filing-history page if the specific filing can't be found.
     """
+    cached = _incorporation_doc_cache.get(company_number)
+    if cached is not None:
+        return cached
+
     filing_history_page = f"{WEB_BASE}/company/{company_number}/filing-history"
 
     def _doc_url(txn: str) -> str:
@@ -120,11 +133,14 @@ def incorporation_document_url(company_number: str) -> str:
         # The "incorporation" category also returns the memorandum & articles and
         # related resolutions. Prefer the actual incorporation filing (NEWINC /
         # "incorporation-company"); otherwise fall back to the first item.
-        for item in items:
-            if item.get("type") == "NEWINC" or item.get("description") == "incorporation-company":
-                return _doc_url(item["transaction_id"])
-        if items:
-            return _doc_url(items[0]["transaction_id"])
+        chosen = next(
+            (item for item in items if item.get("type") == "NEWINC" or item.get("description") == "incorporation-company"),
+            items[0] if items else None,
+        )
+        if chosen:
+            url = _doc_url(chosen["transaction_id"])
+            _incorporation_doc_cache[company_number] = url
+            return url
     except (requests.RequestException, CompaniesHouseError):
         pass
     return filing_history_page
