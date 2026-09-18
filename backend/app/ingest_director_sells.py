@@ -1,28 +1,28 @@
-"""Ingests director open-market share purchases from SEC Form 4 filings
+"""Ingests director open-market share sales from SEC Form 4 filings
 (Statement of Changes in Beneficial Ownership).
 
-Unlike ingest.py's SPAC/IPO detection (which scans each candidate company's
-FULL filing history to find "earliest visible" events), this is a pure
-rolling feed: SEC's daily index lists every Form 4 filed each day - we fetch
-and parse each one directly (Form 4's ownership XML is fully structured, no
-text/LLM extraction involved) and keep any qualifying transaction. There's no
-per-company history to check, since a Form 4 always reports its own
-transaction date directly.
+Mirrors ingest_director_buys.py exactly, but for sales: unlike ingest.py's
+SPAC/IPO detection (which scans each candidate company's FULL filing history
+to find "earliest visible" events), this is a pure rolling feed: SEC's daily
+index lists every Form 4 filed each day - we fetch and parse each one
+directly (Form 4's ownership XML is fully structured, no text/LLM extraction
+involved) and keep any qualifying transaction. There's no per-company history
+to check, since a Form 4 always reports its own transaction date directly.
 
 A transaction qualifies when:
   - the reporting owner has isDirector=true (officer-only or 10%-owner-only
     filers are excluded - this tracks directors specifically), and
-  - the transaction is coded 'P' (open market purchase) with an
-    'A' (acquired) disposition - not grants, gifts, option exercises, or
-    sales.
+  - the transaction is coded 'S' (open market sale) with a
+    'D' (disposed) disposition - not gifts, dispositions to the issuer, or
+    tax withholding.
 
 Note: Form 4's daily-index entry is filed under the REPORTING OWNER's CIK,
 not the issuer's - the issuer (company) is only known once the XML itself is
 parsed, so the company upsert happens per-transaction rather than up front.
 
 Usage:
-    python -m app.ingest_director_buys                  # last 3 days
-    python -m app.ingest_director_buys --days-back 14    # last 14 days
+    python -m app.ingest_director_sells                  # last 3 days
+    python -m app.ingest_director_sells --days-back 14    # last 14 days
 """
 
 import argparse
@@ -34,11 +34,11 @@ from sqlalchemy.orm import Session
 
 from .database import SessionLocal, ensure_schema
 from .ingest import _upsert_company
-from .models import DirectorBuyEvent
+from .models import DirectorSellEvent
 from .sec_client import SecClient
 
-PURCHASE_CODE = "P"
-ACQUIRED_CODE = "A"
+SALE_CODE = "S"
+DISPOSED_CODE = "D"
 
 
 def _text(el: ET.Element | None, path: str) -> str | None:
@@ -96,7 +96,7 @@ def _ingest_one_form4(
     for line_no, txn in enumerate(root.findall("nonDerivativeTable/nonDerivativeTransaction")):
         code = _text(txn, "transactionCoding/transactionCode")
         acquired_disposed = _text(txn, "transactionAmounts/transactionAcquiredDisposedCode/value")
-        if code != PURCHASE_CODE or acquired_disposed != ACQUIRED_CODE:
+        if code != SALE_CODE or acquired_disposed != DISPOSED_CODE:
             continue
 
         shares_str = _text(txn, "transactionAmounts/transactionShares/value")
@@ -109,8 +109,8 @@ def _ingest_one_form4(
             continue
 
         exists = (
-            db.query(DirectorBuyEvent)
-            .filter(DirectorBuyEvent.accession_no == accession_no, DirectorBuyEvent.line_no == line_no)
+            db.query(DirectorSellEvent)
+            .filter(DirectorSellEvent.accession_no == accession_no, DirectorSellEvent.line_no == line_no)
             .one_or_none()
         )
         if exists:
@@ -118,7 +118,7 @@ def _ingest_one_form4(
 
         company = _upsert_company(db, issuer_cik10, issuer_name, issuer_ticker, None, None)
         db.add(
-            DirectorBuyEvent(
+            DirectorSellEvent(
                 company_id=company.id,
                 accession_no=accession_no,
                 line_no=line_no,
@@ -165,9 +165,9 @@ def run(days_back: int = 3) -> None:
                     print(f"  [warn] {entry['name']} ({accession_no}): {exc}", file=sys.stderr)
 
                 if total_checked % 200 == 0:
-                    print(f"  checked {total_checked} filing(s), {total_new_events} new director buy(s) so far")
+                    print(f"  checked {total_checked} filing(s), {total_new_events} new director sell(s) so far")
 
-    print(f"Done. Checked {total_checked} Form 4 filing(s), {total_new_events} new director buy(s) ingested.")
+    print(f"Done. Checked {total_checked} Form 4 filing(s), {total_new_events} new director sell(s) ingested.")
 
 
 def main() -> None:

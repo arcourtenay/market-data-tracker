@@ -61,6 +61,22 @@ class DirectorBuyEventOut(BaseModel):
     company: CompanyOut
 
 
+class DirectorSellEventOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    reporting_owner_name: str
+    officer_title: str | None
+    transaction_date: date
+    filing_date: date
+    shares: float
+    price_per_share: float
+    value_usd: float
+    filing_url: str
+    created_at: datetime
+    company: CompanyOut
+
+
 class FinancialResultEventOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

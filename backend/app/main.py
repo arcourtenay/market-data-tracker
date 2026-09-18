@@ -7,6 +7,7 @@ from .routers import (
     companies,
     companies_house,
     director_buys,
+    director_sells,
     financial_results,
     funds,
     ipo_events,
@@ -32,6 +33,7 @@ app.include_router(companies.router)
 app.include_router(spac_events.router)
 app.include_router(ipo_events.router)
 app.include_router(director_buys.router)
+app.include_router(director_sells.router)
 app.include_router(financial_results.router)
 app.include_router(companies_house.router)
 app.include_router(takeover_panel.router)

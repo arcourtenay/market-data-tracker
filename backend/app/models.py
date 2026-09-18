@@ -39,6 +39,7 @@ class Company(Base):
     spac_events: Mapped[list["SpacEvent"]] = relationship(back_populates="company")
     ipo_events: Mapped[list["IpoEvent"]] = relationship(back_populates="company")
     director_buy_events: Mapped[list["DirectorBuyEvent"]] = relationship(back_populates="company")
+    director_sell_events: Mapped[list["DirectorSellEvent"]] = relationship(back_populates="company")
     financial_result_events: Mapped[list["FinancialResultEvent"]] = relationship(back_populates="company")
 
 
@@ -130,6 +131,40 @@ class DirectorBuyEvent(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     company: Mapped["Company"] = relationship(back_populates="director_buy_events")
+
+
+class DirectorSellEvent(Base):
+    """An open-market sale of common stock by a company director, disclosed
+    on Form 4 (Statement of Changes in Beneficial Ownership):
+    transactionCode 'S' (open market sale) with
+    transactionAcquiredDisposedCode 'D' (disposed), by a reporting owner
+    with isDirector=true. Officer-only or 10%-owner-only filers, and
+    non-sale codes (gifts, dispositions to the issuer, tax withholding),
+    are excluded - this tracks directors selling on the open market
+    specifically. Mirrors DirectorBuyEvent exactly, but for sales.
+
+    A single Form 4 can report several qualifying transactions (line_no
+    distinguishes them) - and, rarely, more than one reporting owner on a
+    joint filing, in which case only the first-listed owner is used."""
+
+    __tablename__ = "director_sell_events"
+    __table_args__ = (UniqueConstraint("accession_no", "line_no", name="uq_director_sell_accession_line"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    company_id: Mapped[int] = mapped_column(ForeignKey("companies.id"), index=True)
+    accession_no: Mapped[str] = mapped_column(String(25), index=True)
+    line_no: Mapped[int] = mapped_column(Integer)
+    reporting_owner_name: Mapped[str] = mapped_column(String(255))
+    officer_title: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    transaction_date: Mapped[date] = mapped_column(Date, index=True)
+    filing_date: Mapped[date] = mapped_column(Date, index=True)
+    shares: Mapped[float] = mapped_column(Float)
+    price_per_share: Mapped[float] = mapped_column(Float)
+    value_usd: Mapped[float] = mapped_column(Float)
+    filing_url: Mapped[str] = mapped_column(String(500))
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    company: Mapped["Company"] = relationship(back_populates="director_sell_events")
 
 
 class FinancialResultEvent(Base):
