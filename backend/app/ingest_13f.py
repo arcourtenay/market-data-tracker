@@ -149,19 +149,25 @@ def run(cik: str | list[str], name: str, quarters: int = 4) -> None:
     issuer-name aggregation the API already uses to combine a single filer's
     multiple share classes.
 
-    For a single CIK, `name` is overridden with SEC's own registered name for
-    that CIK (the technically-correct name of the actual filer) - unchanged
-    from this function's original single-CIK behavior. For a list, there's no
-    one "correct" legal name spanning every underlying entity, so `name` is
-    used exactly as given (e.g. "Founders Fund")."""
+    Passing `cik` as a bare string uses SEC's own registered name for that CIK
+    (the technically-correct name of the actual filer) instead of `name` -
+    unchanged from this function's original single-CIK behavior. Passing it as
+    a list - even a single-element one - opts OUT of that override and uses
+    `name` exactly as given: needed for a multi-CIK fund family where there's
+    no one "correct" legal name spanning every entity (e.g. "Founders Fund"),
+    and also useful for a single CIK whose actual registered filer name would
+    be confusing to show (e.g. CIK 0001489933 is legally "DME Capital
+    Management, LP" but is shown as "Greenlight Capital" - the name investors
+    actually know that fund complex by)."""
     ensure_schema()
-    cik10_list = [c.zfill(10) for c in ([cik] if isinstance(cik, str) else cik)]
+    is_single_cik = isinstance(cik, str)
+    cik10_list = [c.zfill(10) for c in ([cik] if is_single_cik else cik)]
     primary_cik10 = cik10_list[0]
     client = SecClient()
 
     with SessionLocal() as db:
         display_name = name
-        if len(cik10_list) == 1:
+        if is_single_cik:
             # Use SEC's own registered name for this CIK, not whatever we were told
             # to call it - that's the technically-correct name of the actual filer.
             display_name = client.get_submissions(primary_cik10).get("name") or name
