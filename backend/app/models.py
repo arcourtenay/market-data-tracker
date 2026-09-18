@@ -155,7 +155,14 @@ class FinancialResultEvent(Base):
 
 class Fund(Base):
     """An institutional manager we track 13F holdings for, picked by CIK
-    (not auto-discovered - added one at a time as the user names one)."""
+    (not auto-discovered - added one at a time as the user names one).
+
+    Usually one CIK per fund, but some are actually a family of several
+    separate manager-entity CIKs (e.g. Founders Fund, which files 13F-HR
+    under a distinct entity per fund vintage) that should be shown as a
+    single combined entry - cik holds the primary/first CIK, and
+    additional_ciks holds any others, so ingest_13f can pull holdings from
+    every one of them into this same Fund.id."""
 
     __tablename__ = "funds"
 
@@ -165,17 +172,40 @@ class Fund(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
     holdings: Mapped[list["FundHolding"]] = relationship(back_populates="fund", cascade="all, delete-orphan")
+    additional_ciks: Mapped[list["FundCik"]] = relationship(back_populates="fund", cascade="all, delete-orphan")
+
+    @property
+    def ciks(self) -> list[str]:
+        return [self.cik, *(fc.cik for fc in self.additional_ciks)]
+
+
+class FundCik(Base):
+    """An extra CIK folded into a multi-entity Fund beyond its primary
+    Fund.cik - see Fund's docstring."""
+
+    __tablename__ = "fund_ciks"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    fund_id: Mapped[int] = mapped_column(ForeignKey("funds.id"), index=True)
+    cik: Mapped[str] = mapped_column(String(10), unique=True, index=True)
+
+    fund: Mapped["Fund"] = relationship(back_populates="additional_ciks")
 
 
 class FundHolding(Base):
-    """One line of a fund's LATEST Form 13F-HR information table. Only the most
-    recent filing is kept - re-ingesting a fund replaces its holdings wholesale
-    rather than accumulating history."""
+    """One line of a fund's Form 13F-HR information table for one quarter.
+    Multiple quarters are kept side by side - re-ingesting a fund replaces
+    only the specific quarter(s) it just fetched, not older ones already
+    stored. source_cik records which of the fund's CIKs (see Fund.ciks) this
+    row came from, nullable for rows ingested before multi-CIK funds existed
+    - only used to scope the per-quarter replace-on-reingest to the right
+    CIK when a fund has more than one."""
 
     __tablename__ = "fund_holdings"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     fund_id: Mapped[int] = mapped_column(ForeignKey("funds.id"), index=True)
+    source_cik: Mapped[str | None] = mapped_column(String(10), nullable=True, index=True)
     accession_no: Mapped[str] = mapped_column(String(25), index=True)
     period_of_report: Mapped[date] = mapped_column(Date, index=True)
     filing_date: Mapped[date] = mapped_column(Date)

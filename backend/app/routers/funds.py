@@ -47,13 +47,19 @@ def get_fund_holdings(
     if target_period is None:
         raise HTTPException(status_code=404, detail="No 13F holdings ingested yet for this fund")
 
-    holdings = (
+    all_holdings = (
         db.query(FundHolding)
         .filter(FundHolding.fund_id == fund_id, FundHolding.period_of_report == target_period)
         .all()
     )
-    if not holdings:
+    if not all_holdings:
         raise HTTPException(status_code=404, detail="No 13F holdings ingested yet for this fund/quarter")
+
+    # Some filers submit a placeholder line (issuer "NA", $0, 0 shares) when they have
+    # zero 13(f) securities to report that quarter rather than an empty table - drop
+    # it, it's not a real holding.
+    holdings = [h for h in all_holdings if h.value_usd > 0]
+    filing_date_source = holdings[0] if holdings else all_holdings[0]
 
     total_value_usd = sum(h.value_usd for h in holdings)
 
@@ -115,9 +121,9 @@ def get_fund_holdings(
 
     return {
         "fund": fund,
-        "period_of_report": holdings[0].period_of_report,
+        "period_of_report": filing_date_source.period_of_report,
         "prior_period_of_report": prior_period,
-        "filing_date": holdings[0].filing_date,
+        "filing_date": filing_date_source.filing_date,
         "total_value_usd": total_value_usd,
         "holdings": aggregated,
     }

@@ -107,6 +107,7 @@ class FundOut(BaseModel):
 
     id: int
     cik: str
+    ciks: list[str]
     name: str
 
 
